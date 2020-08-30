@@ -1,0 +1,52 @@
+<resources>
+    // theme and theme overlays go here
+
+    <style name="Theme.ExampleApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryVariant</item>
+        <item name="android:statusBarColor">@color/colorPrimaryVariant</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+
+        <item name="colorSecondary">@color/colorSecondary</item>
+        <item name="colorSecondaryVariant">@color/colorSecondaryVariant</item>
+        <item name="colorOnSecondary">@color/colorOnSecondary</item>
+
+        <!--        <item name="colorError">@color/colorError</item>-->
+        <!--        <item name="colorOnError">@color/colorOnError</item>-->
+
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+
+        <item name="android:colorBackground">@color/colorBackground</item>
+        <item name="colorOnBackground">@color/colorOnBackground</item>
+
+        <item name="textAppearanceHeadline1">@style/TextAppearance.ExampleApp.Headline1</item>
+        <item name="textAppearanceHeadline2">@style/TextAppearance.ExampleApp.Headline2</item>
+        <item name="textAppearanceHeadline3">@style/TextAppearance.ExampleApp.Headline3</item>
+        <item name="textAppearanceHeadline4">@style/TextAppearance.ExampleApp.Headline4</item>
+        <item name="textAppearanceHeadline5">@style/TextAppearance.ExampleApp.Headline5</item>
+        <item name="textAppearanceHeadline6">@style/TextAppearance.ExampleApp.Headline6</item>
+
+        <item name="textAppearanceSubtitle1">@style/TextAppearance.ExampleApp.Subtitle1</item>
+        <item name="textAppearanceSubtitle2">@style/TextAppearance.ExampleApp.Subtitle2</item>
+
+        <item name="textAppearanceBody1">@style/TextAppearance.ExampleApp.Body1</item>
+        <item name="textAppearanceBody2">@style/TextAppearance.ExampleApp.Body2</item>
+
+        <item name="textAppearanceCaption">@style/TextAppearance.ExampleApp.Caption</item>
+
+        <item name="textAppearanceButton">@style/TextAppearance.ExampleApp.Button</item>
+
+        <item name="textAppearanceOverline">@style/TextAppearance.ExampleApp.Overline</item>
+
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.ExampleApp.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.ExampleApp.MediumComponent
+        </item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.ExampleApp.LargeComponent</item>
+    </style>
+
+    <style name="Theme.ExampleApp.Fullscreen">
+        <item name="android:immersive">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>

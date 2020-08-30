@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="tap_event_milliseconds">200</integer>
+    <integer name="hide_system_navigation_timeout_seconds">1</integer>
+    <integer name="show_hand_motion_timeout_seconds">2</integer>
+</resources>

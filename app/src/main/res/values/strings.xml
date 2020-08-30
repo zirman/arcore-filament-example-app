@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Example App</string>
+
+    <!-- OpenGL compatibility dialog -->
+    <string name="opengl_required_title">OpenGL Error</string>
+    <string name="opengl_required_message">OpenGL ES %1$s or later required</string>
+
+    <!-- camera permission dialog -->
+    <string name="camera_permission_title">Camera Permission</string>
+    <string name="camera_permission_message">Camera is used for Augmented Reality</string>
+</resources>

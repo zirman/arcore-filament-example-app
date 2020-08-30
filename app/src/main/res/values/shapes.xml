@@ -1,0 +1,15 @@
+<resources>
+    // override shapes and create shape overlays
+
+    <style name="ShapeAppearance.ExampleApp.SmallComponent" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+
+    </style>
+
+    <style name="ShapeAppearance.ExampleApp.MediumComponent" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+
+    </style>
+
+    <style name="ShapeAppearance.ExampleApp.LargeComponent" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+
+    </style>
+</resources>

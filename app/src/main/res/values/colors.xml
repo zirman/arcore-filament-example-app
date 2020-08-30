@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#1e6ba7</color>
+    <color name="colorPrimaryVariant">#185585</color>
+    <color name="colorOnPrimary">#ffffff</color>
+
+    <color name="colorSecondary">#2ea3ff</color>
+    <color name="colorSecondaryVariant">#0086f0</color>
+    <color name="colorOnSecondary">#ffffff</color>
+
+    <!--    <color name="colorError">#c70000</color>-->
+    <!--    <color name="colorOnError">#ffffff</color>-->
+
+    <color name="colorSurface">#ffffff</color>
+    <color name="colorOnSurface">#000000</color>
+
+    <color name="colorBackground">#ffffff</color>
+    <color name="colorOnBackground">#000000</color>
+
+    <color name="colorBottomAppBar">#b3ffffff</color>
+    <color name="colorNavigationBarFloating">#b3000000</color>
+
+    <color name="colorCardSelected">#b32ea3ff</color>
+    <color name="colorCardNormal">#b3eeeeee</color>
+
+    <color name="colorIconWarning">#cc3300</color>
+    <color name="colorIconChecked">#2ea3ff</color>
+    <color name="colorIconEnabled">#778688</color>
+    <color name="colorIconNormal">#66778688</color>
+
+    <color name="colorIconFloatingEnabled">#ffffffff</color>
+    <color name="colorIconFloatingNormal">#66ffffff</color>
+</resources>
