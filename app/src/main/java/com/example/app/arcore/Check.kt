@@ -1,15 +1,11 @@
 package com.example.app.arcore
 
 import android.app.Activity
-import com.example.app.ResumeBehavior
-import com.example.app.OpenGLVersionNotSupported
-import com.example.app.checkIfOpenGlVersionSupported
-import com.example.app.minOpenGlVersion
-import com.example.app.showOpenGlNotSupportedDialog
+import com.example.app.*
 import com.google.ar.core.ArCoreApk
 import io.reactivex.Single
 
-fun <T> T.checkArCore(): Single<Unit> where T : Activity, T : ResumeBehavior =
+fun <T> T.checkArCore(): Single<Unit> where T : Activity, T : ResumeBehavior, T : ResumeEvents =
     Single
         .just(Unit)
         .flatMap {
@@ -34,9 +30,7 @@ fun <T> T.checkArCore(): Single<Unit> where T : Activity, T : ResumeBehavior =
                 )) {
                 ArCoreApk.InstallStatus.INSTALLED -> Single
                     .just(Unit)
-                ArCoreApk.InstallStatus.INSTALL_REQUESTED -> resumeBehavior
-                    .filter { it }
-                    .map { Unit }
+                ArCoreApk.InstallStatus.INSTALL_REQUESTED -> resumeEvents
                     .firstOrError()
                     .doOnSuccess {
                         // check if installation was successful

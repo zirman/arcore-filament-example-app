@@ -23,7 +23,7 @@ class ModelRenderer(
     private val filament: Filament
 ) {
     sealed class ModelEvent {
-        data class Pointer(val screenPosition: ScreenPosition) : ModelEvent()
+        data class Move(val screenPosition: ScreenPosition) : ModelEvent()
         data class Update(val rotate: Float, val scale: Float) : ModelEvent()
     }
 
@@ -38,7 +38,7 @@ class ModelRenderer(
         // translation
         modelEvents
             .flatMap { modelEvent ->
-                (modelEvent as? ModelEvent.Pointer)
+                (modelEvent as? ModelEvent.Move)
                     ?.let {
                         arCore.frame
                             .hitTest(

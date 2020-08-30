@@ -24,6 +24,10 @@ data class PermissionResultEvent(val requestCode: Int, val grantResults: IntArra
     }
 }
 
+interface ResumeEvents {
+    val resumeEvents: PublishSubject<Unit>
+}
+
 interface ResumeBehavior {
     val resumeBehavior: BehaviorSubject<Boolean>
 }

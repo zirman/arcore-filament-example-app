@@ -31,10 +31,13 @@ import io.reactivex.subjects.PublishSubject
 import java.util.concurrent.TimeUnit
 
 class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResultEvents,
-    ConfigurationChangedEvents, ResumeBehavior {
+    ConfigurationChangedEvents, ResumeEvents, ResumeBehavior {
 
     override val onSystemUiFlagHideNavigationDisposable: CompositeDisposable =
         CompositeDisposable()
+
+    override val resumeEvents: PublishSubject<Unit> =
+        PublishSubject.create()
 
     override val resumeBehavior: BehaviorSubject<Boolean> =
         BehaviorSubject.create()
@@ -45,7 +48,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
     override val configurationChangedEvents: PublishSubject<Configuration> =
         PublishSubject.create()
 
-    private val arStateSignal: BehaviorSubject<ArState> =
+    private val arContextSignal: BehaviorSubject<ArContext> =
         BehaviorSubject.create()
 
     private val dragEvents: PublishSubject<Pair<ViewRect, TouchEvent>> =
@@ -56,9 +59,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
     private val rotateEvents: PublishSubject<Float> =
         PublishSubject.create()
-
-    private val grantedPermissionsAndArCoreInstalledSignal: BehaviorSubject<Unit> =
-        BehaviorSubject.create()
 
     private val arTrackingEvents: PublishSubject<Unit> =
         PublishSubject.create()
@@ -187,23 +187,15 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             .firstOrError()
             .flatMap { checkPermissions() }
             .flatMap { checkArCore() }
-            .subscribe(
-                { grantedPermissionsAndArCoreInstalledSignal.onNext(Unit) },
-                { errorHandler(it) }
-            )
-            .let { onCreateDisposable.add(it) }
-
-        grantedPermissionsAndArCoreInstalledSignal
-            .firstOrError()
             .flatMapObservable { ArCore.arCoreSignal(this, textureView) }
             .flatMap { arCore ->
-                Observable.create<ArState> { observableEmitter ->
+                Observable.create<ArContext> { observableEmitter ->
                     val filament = Filament(this, arCore, textureView)
 
                     val cameraRenderer = CameraRenderer(filament, arCore)
                     val lightRenderer = LightRenderer(filament)
                     val planeRenderer = PlaneRenderer(this, filament)
-                    val cursorRenderer = ModelRenderer(this, arCore, filament)
+                    val modelRenderer = ModelRenderer(this, arCore, filament)
 
                     val frameCallback = FrameCallback(
                         arCore,
@@ -218,35 +210,35 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                             cameraRenderer.doFrame(frame)
                             lightRenderer.doFrame(frame)
                             planeRenderer.doFrame(frame)
-                            cursorRenderer.doFrame(frame)
+                            modelRenderer.doFrame(frame)
                         }
                     )
 
-                    ArState(
+                    ArContext(
                         arCore,
                         filament,
                         cameraRenderer,
                         lightRenderer,
                         planeRenderer,
-                        cursorRenderer,
+                        modelRenderer,
                         frameCallback
                     )
                         .let { observableEmitter.onNext(it) }
 
                     observableEmitter.setCancellable {
-                        cursorRenderer.destroy()
+                        modelRenderer.destroy()
                         filament.destroy()
                     }
                 }
                     .subscribeOn(AndroidSchedulers.mainThread())
             }
-            .subscribe({ arStateSignal.onNext(it) }, { errorHandler(it) })
+            .subscribe({ arContextSignal.onNext(it) }, { errorHandler(it) })
             .let { onCreateDisposable.add(it) }
 
-        arStateSignal
+        arContextSignal
             .firstOrError()
-            .flatMapObservable { arState ->
-                configurationChangedEvents.map { Pair(arState.arCore, arState.filament) }
+            .flatMapObservable { arContext ->
+                configurationChangedEvents.map { Pair(arContext.arCore, arContext.filament) }
             }
             .subscribe(
                 { (arCore, filament) -> arCore.configurationChange(filament) },
@@ -254,41 +246,32 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             )
             .let { onCreateDisposable.add(it) }
 
-        arStateSignal
+        arContextSignal
             .firstOrError()
-            .flatMapObservable { arState ->
-                dragEvents.doOnNext { (viewRect, touchEvent) ->
-                    ScreenPosition(
-                        x = touchEvent.x / viewRect.width,
-                        y = touchEvent.y / viewRect.height
-                    )
-                        .let { ModelRenderer.ModelEvent.Pointer(it) }
-                        .let { arState.pointerRenderer.modelEvents.onNext(it) }
-                }
+            .flatMapObservable { arContext ->
+                Observable.merge(
+                    dragEvents.map { (viewRect, touchEvent) ->
+                        ScreenPosition(
+                            x = touchEvent.x / viewRect.width,
+                            y = touchEvent.y / viewRect.height
+                        )
+                            .let { ModelRenderer.ModelEvent.Move(it) }
+                            .let { Pair(arContext.modelRenderer, it) }
+                    },
+                    scaleEvents.map { scale ->
+                        ModelRenderer.ModelEvent.Update(0f, scale)
+                            .let { Pair(arContext.modelRenderer, it) }
+                    },
+                    rotateEvents.map { rotate ->
+                        ModelRenderer.ModelEvent.Update(rotate, 1f)
+                            .let { Pair(arContext.modelRenderer, it) }
+                    }
+                )
             }
-            .subscribe({}, { errorHandler(it) })
-            .let { onCreateDisposable.add(it) }
-
-        arStateSignal
-            .firstOrError()
-            .flatMapObservable { arState ->
-                scaleEvents.doOnNext { scale ->
-                    ModelRenderer.ModelEvent.Update(0f, scale)
-                        .let { arState.pointerRenderer.modelEvents.onNext(it) }
-                }
-            }
-            .subscribe({}, { errorHandler(it) })
-            .let { onCreateDisposable.add(it) }
-
-        arStateSignal
-            .firstOrError()
-            .flatMapObservable { arState ->
-                rotateEvents.doOnNext { rotate ->
-                    ModelRenderer.ModelEvent.Update(rotate, 1f)
-                        .let { arState.pointerRenderer.modelEvents.onNext(it) }
-                }
-            }
-            .subscribe({}, { errorHandler(it) })
+            .subscribe(
+                { (modelRenderer, modelEvent) -> modelRenderer.modelEvents.onNext(modelEvent) },
+                { errorHandler(it) }
+            )
             .let { onCreateDisposable.add(it) }
     }
 
@@ -300,16 +283,16 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
     override fun onStart() {
         super.onStart()
 
-        arStateSignal
-            .flatMap { arState ->
+        arContextSignal
+            .flatMap { arContext ->
                 Observable
                     .create<Nothing> { observableEmitter ->
-                        arState.arCore.session.resume()
-                        arState.frameCallback.start()
+                        arContext.arCore.session.resume()
+                        arContext.frameCallback.start()
 
                         observableEmitter.setCancellable {
-                            arState.frameCallback.stop()
-                            arState.arCore.session.pause()
+                            arContext.frameCallback.stop()
+                            arContext.arCore.session.pause()
                         }
                     }
             }
@@ -318,26 +301,29 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
         // visibility of handMotionContainer
         // show hand motion after resuming ar if nothing is tracked for 2 seconds
-        Observable
-            .amb(listOf(
+        arContextSignal
+            .flatMap {
                 Observable
-                    .concat(
+                    .amb(listOf(
                         Observable
-                            .just(true)
-                            .delay(
-                                resources
-                                    .getInteger(R.integer.show_hand_motion_timeout_seconds)
-                                    .toLong(),
-                                TimeUnit.SECONDS
+                            .concat(
+                                Observable
+                                    .just(true)
+                                    .delay(
+                                        resources
+                                            .getInteger(R.integer.show_hand_motion_timeout_seconds)
+                                            .toLong(),
+                                        TimeUnit.SECONDS
+                                    ),
+                                arTrackingEvents
+                                    .take(1)
+                                    .map { false }
                             ),
                         arTrackingEvents
                             .take(1)
                             .map { false }
-                    ),
-                arTrackingEvents
-                    .take(1)
-                    .map { false }
-            ))
+                    ))
+            }
             .observeOn(AndroidSchedulers.mainThread())
             .doOnDispose { handMotionContainer.isVisible = false }
             .subscribe({ handMotionContainer.isVisible = it }, { errorHandler(it) })
@@ -353,6 +339,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
     override fun onResume() {
         super.onResume()
         onResumeAutoHideSystemUi()
+        resumeEvents.onNext(Unit)
         resumeBehavior.onNext(true)
     }
 
