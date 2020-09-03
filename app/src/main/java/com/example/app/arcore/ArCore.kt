@@ -20,11 +20,10 @@ import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.ar.core.*
-import io.reactivex.Observable
 import kotlin.math.roundToInt
 
 @SuppressLint("MissingPermission")
-class ArCore private constructor(private val activity: Activity, private val view: View) {
+class ArCore(private val activity: Activity, private val view: View) {
     companion object {
         private val cameraScreenSpaceVertices: V4A =
             floatArrayOf(
@@ -47,13 +46,6 @@ class ArCore private constructor(private val activity: Activity, private val vie
 
         private const val arCameraStreamPositionBufferIndex: Int = 0
         private const val arCameraStreamUvBufferIndex: Int = 1
-
-        fun arCoreSignal(activity: Activity, view: View): Observable<ArCore> = Observable
-            .create { observableEmitter ->
-                val arCore = ArCore(activity, view)
-                observableEmitter.onNext(arCore)
-                observableEmitter.setCancellable { arCore.destroy() }
-            }
     }
 
     val eglContext: EGLContext = createEglContext().orNull()!!

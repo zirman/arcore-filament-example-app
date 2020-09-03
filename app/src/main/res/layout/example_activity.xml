@@ -8,8 +8,8 @@
     android:keepScreenOn="true"
     tools:context="com.example.app.aractivity.ArActivity">
 
-    <TextureView
-        android:id="@+id/texture_view"
+    <SurfaceView
+        android:id="@+id/surface_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_gravity="center" />

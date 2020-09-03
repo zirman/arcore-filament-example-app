@@ -42,8 +42,8 @@ class ModelRenderer(
                     ?.let {
                         arCore.frame
                             .hitTest(
-                                filament.textureView.width.toFloat() * modelEvent.screenPosition.x,
-                                filament.textureView.height.toFloat() * modelEvent.screenPosition.y
+                                filament.surfaceView.width.toFloat() * modelEvent.screenPosition.x,
+                                filament.surfaceView.height.toFloat() * modelEvent.screenPosition.y
                             )
                             .firstOrNull()
                     }

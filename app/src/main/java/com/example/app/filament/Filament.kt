@@ -2,7 +2,7 @@ package com.example.app.filament
 
 import android.content.Context
 import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceView
 import com.example.app.arcore.ArCore
 import com.example.app.M4
 import com.example.app.toDoubleArray
@@ -13,7 +13,7 @@ import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.MaterialProvider
 import com.google.android.filament.gltfio.ResourceLoader
 
-class Filament(context: Context, arCore: ArCore, val textureView: TextureView) {
+class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
     companion object {
         const val near = 0.1f
         const val far = 30f
@@ -54,7 +54,7 @@ class Filament(context: Context, arCore: ArCore, val textureView: TextureView) {
             override fun onNativeWindowChanged(surface: Surface) {
                 swapChain?.let { engine.destroySwapChain(it) }
                 swapChain = engine.createSwapChain(surface)
-                displayHelper.attach(renderer, textureView.display)
+                displayHelper.attach(renderer, surfaceView.display)
             }
 
             override fun onDetachedFromSurface() {
@@ -74,7 +74,7 @@ class Filament(context: Context, arCore: ArCore, val textureView: TextureView) {
             }
         }
 
-        attachTo(textureView)
+        attachTo(surfaceView)
     }
 
     fun destroy() {

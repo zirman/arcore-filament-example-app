@@ -69,7 +69,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
     private val onStartDisposable: CompositeDisposable =
         CompositeDisposable()
 
-    private lateinit var textureView: TextureView
+    private lateinit var surfaceView: SurfaceView
     private lateinit var handMotionContainer: FrameLayout
     private lateinit var transformationSystem: TransformationSystem
 
@@ -80,7 +80,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
         onCreateAutoHideSystemUi()
 
         setContentView(R.layout.example_activity)
-        textureView = findViewById(R.id.texture_view)!!
+        surfaceView = findViewById(R.id.surface_view)!!
         handMotionContainer = findViewById(R.id.hand_motion_container)!!
 
         transformationSystem = TransformationSystem(resources.displayMetrics)
@@ -140,7 +140,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             object : DragGestureRecognizer.OnGestureStartedListener {
                 override fun onGestureStarted(gesture: DragGesture) {
                     Pair(
-                        textureView.toViewRect(),
+                        surfaceView.toViewRect(),
                         TouchEvent.Move(gesture.position.x, gesture.position.y)
                     )
                         .let { dragEvents.onNext(it) }
@@ -149,7 +149,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                         object : DragGesture.OnGestureEventListener {
                             override fun onFinished(gesture: DragGesture) {
                                 Pair(
-                                    textureView.toViewRect(),
+                                    surfaceView.toViewRect(),
                                     TouchEvent.Stop(gesture.position.x, gesture.position.y)
                                 )
                                     .let { dragEvents.onNext(it) }
@@ -157,7 +157,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
                             override fun onUpdated(gesture: DragGesture) {
                                 Pair(
-                                    textureView.toViewRect(),
+                                    surfaceView.toViewRect(),
                                     TouchEvent.Move(gesture.position.x, gesture.position.y)
                                 )
                                     .let { dragEvents.onNext(it) }
@@ -169,12 +169,12 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
         )
 
         // tap and gesture events
-        textureView.setOnTouchListener { _, motionEvent ->
+        surfaceView.setOnTouchListener { _, motionEvent ->
             if (motionEvent.action == MotionEvent.ACTION_UP &&
                 (motionEvent.eventTime - motionEvent.downTime) <
                 resources.getInteger(R.integer.tap_event_milliseconds)
             ) {
-                Pair(textureView.toViewRect(), TouchEvent.Stop(motionEvent.x, motionEvent.y))
+                Pair(surfaceView.toViewRect(), TouchEvent.Stop(motionEvent.x, motionEvent.y))
                     .let { dragEvents.onNext(it) }
             }
 
@@ -187,10 +187,16 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             .firstOrError()
             .flatMap { checkPermissions() }
             .flatMap { checkArCore() }
-            .flatMapObservable { ArCore.arCoreSignal(this, textureView) }
+            .flatMapObservable {
+                Observable.create<ArCore> { observableEmitter ->
+                    val arCore = ArCore(this, surfaceView)
+                    observableEmitter.onNext(arCore)
+                    observableEmitter.setCancellable { arCore.destroy() }
+                }
+            }
             .flatMap { arCore ->
                 Observable.create<ArContext> { observableEmitter ->
-                    val filament = Filament(this, arCore, textureView)
+                    val filament = Filament(this, arCore, surfaceView)
 
                     val cameraRenderer = CameraRenderer(filament, arCore)
                     val lightRenderer = LightRenderer(filament)
