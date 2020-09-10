@@ -16,6 +16,10 @@
         android:name="android.hardware.camera.ar"
         android:required="true" />
 
+    <queries>
+        <package android:name="com.google.ar.core" />
+    </queries>
+
     <application
         android:name=".ExampleApplication"
         android:allowBackup="false"
