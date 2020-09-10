@@ -2,6 +2,7 @@ material {
     name : textured,
     shadingModel : unlit,
     blending : transparent,
+    transparency : twoPassesOneSide,
     parameters : [
         {
             type : sampler2d,
