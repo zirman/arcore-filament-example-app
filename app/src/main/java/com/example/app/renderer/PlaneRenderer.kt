@@ -4,9 +4,9 @@ import android.content.Context
 import com.example.app.*
 import com.example.app.R
 import com.example.app.filament.Filament
-import com.example.app.filament.TextureType
-import com.example.app.filament.loadTexture
 import com.google.android.filament.*
+import com.google.android.filament.textured.TextureType
+import com.google.android.filament.textured.loadTexture
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
@@ -14,6 +14,8 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
+import kotlin.math.max
+import kotlin.math.min
 
 class PlaneRenderer(context: Context, private val filament: Filament) {
     companion object {
@@ -30,14 +32,25 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 .build(filament.engine)
         }
 
-    private val planeMaterialInstance: MaterialInstance = textureMaterial
+    private val textureMaterialInstance: MaterialInstance = textureMaterial
         .createInstance()
         .also { materialInstance ->
             materialInstance.setParameter(
                 "texture",
-                context.loadTexture(filament.engine, R.drawable.sceneform_plane, TextureType.Color),
+                loadTexture(filament.engine, context.resources, R.drawable.sceneform_plane, TextureType.COLOR),
                 TextureSampler().also { it.anisotropy = 8.0f }
             )
+
+            materialInstance.setParameter("alpha", 1f)
+        }
+
+    private val shadowMaterial: Material = context
+        .readUncompressedAsset("materials/shadow.filamat")
+        .let { byteBuffer ->
+            Material
+                .Builder()
+                .payload(byteBuffer, byteBuffer.remaining())
+                .build(filament.engine)
         }
 
     private val planeVertexFloatBuffer: FloatBuffer = ByteBuffer
@@ -90,19 +103,36 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             .map { plane -> plane.subsumedBy ?: plane }
             .toSet()
             .filter { plane -> plane.trackingState == TrackingState.TRACKING }
+            .also { if (it.isEmpty()) return }
+            .sortedBy { it.type != Plane.Type.HORIZONTAL_UPWARD_FACING }
 
-        if (planeTrackables.isEmpty()) {
-            return
-        }
+        val indexNotUpwardFacing = planeTrackables
+            .indexOfFirst { it.type != Plane.Type.HORIZONTAL_UPWARD_FACING }
+
+        var xMin = Float.POSITIVE_INFINITY
+        var xMax = Float.NEGATIVE_INFINITY
+        var yMin = Float.POSITIVE_INFINITY
+        var yMax = Float.NEGATIVE_INFINITY
+        var zMin = Float.POSITIVE_INFINITY
+        var zMax = Float.NEGATIVE_INFINITY
 
         var vertexBufferOffset: Int = 0
         var indexBufferOffset: Int = 0
+
+        var indexWithoutShadow: Int? = null
 
         planeVertexFloatBuffer.rewind()
         planeUvFloatBuffer.rewind()
         planeIndexShortBuffer.rewind()
 
-        for (plane in planeTrackables) {
+        for (i in 0 until planeTrackables.count()) {
+            val plane = planeTrackables[i]
+
+            // index of first triangle that doesn't have shadows applied
+            if (i == indexNotUpwardFacing) {
+                indexWithoutShadow = indexBufferOffset
+            }
+
             // gets plane vertices in world space
             val planeVertices = plane.polygon.polygonToVertices(plane.centerPose.matrix())
 
@@ -111,8 +141,8 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 triangleIndexArrayCreate(
                     planeVertices.count() - 2,
                     { vertexBufferOffset.toShort() },
-                    { i -> (vertexBufferOffset + i + 1).toShort() },
-                    { i -> (vertexBufferOffset + i + 2).toShort() }
+                    { k -> (vertexBufferOffset + k + 1).toShort() },
+                    { k -> (vertexBufferOffset + k + 2).toShort() }
                 )
 
             // check for for buffer overflow
@@ -120,6 +150,15 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 indexBufferOffset + planeTriangleIndices.shortArray.count() > planeIndexBufferSize
             ) {
                 break
+            }
+
+            for (k in planeVertices.floatArray.indices step 4) {
+                xMin = min(planeVertices.floatArray[k + 0], xMin)
+                xMax = max(planeVertices.floatArray[k + 0], xMax)
+                yMin = min(planeVertices.floatArray[k + 1], yMin)
+                yMax = max(planeVertices.floatArray[k + 1], yMax)
+                zMin = min(planeVertices.floatArray[k + 2], zMin)
+                zMax = max(planeVertices.floatArray[k + 2], zMax)
             }
 
             // push out data to nio buffers
@@ -176,12 +215,22 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
 
         // update renderable index buffer count
         RenderableManager
-            .Builder(1)
+            .Builder(2)
             .castShadows(false)
-            .receiveShadows(false)
-            .culling(false)
-            .priority(1)
-            .geometry(
+            .receiveShadows(true)
+            .culling(true)
+            .priority(0)
+            .boundingBox(
+                Box(
+                    (xMin + xMax) / 2f,
+                    (yMin + yMax) / 2f,
+                    (zMin + zMax) / 2f,
+                    (xMax - xMin) / 2f,
+                    (yMax - yMin) / 2f,
+                    (zMax - zMin) / 2f
+                )
+            )
+            .geometry( // texture is applied to all triangles
                 0,
                 RenderableManager.PrimitiveType.TRIANGLES,
                 planeVertexBuffer,
@@ -189,7 +238,16 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 0,
                 indexBufferOffset
             )
-            .material(0, planeMaterialInstance)
+            .material(0, textureMaterialInstance)
+            .geometry( // shadows are applied to upward facing triangles
+                1,
+                RenderableManager.PrimitiveType.TRIANGLES,
+                planeVertexBuffer,
+                planeIndexBuffer,
+                0,
+                indexWithoutShadow ?: indexBufferOffset
+            )
+            .material(1, shadowMaterial.defaultInstance)
             .build(filament.engine, planeRenderable)
     }
 }
