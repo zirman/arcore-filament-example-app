@@ -40,8 +40,6 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 loadTexture(filament.engine, context.resources, R.drawable.sceneform_plane, TextureType.COLOR),
                 TextureSampler().also { it.anisotropy = 8.0f }
             )
-
-            materialInstance.setParameter("alpha", 1f)
         }
 
     private val shadowMaterial: Material = context
