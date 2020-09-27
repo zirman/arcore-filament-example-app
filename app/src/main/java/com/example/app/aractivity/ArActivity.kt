@@ -198,7 +198,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                 Observable.create<ArContext> { observableEmitter ->
                     val filament = Filament(this, arCore, surfaceView)
 
-                    val cameraRenderer = CameraRenderer(filament, arCore)
                     val lightRenderer = LightRenderer(filament)
                     val planeRenderer = PlaneRenderer(this, filament)
                     val modelRenderer = ModelRenderer(this, arCore, filament)
@@ -213,7 +212,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                                 arTrackingEvents.onNext(Unit)
                             }
 
-                            cameraRenderer.doFrame(frame)
                             lightRenderer.doFrame(frame)
                             planeRenderer.doFrame(frame)
                             modelRenderer.doFrame(frame)
@@ -223,7 +221,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                     ArContext(
                         arCore,
                         filament,
-                        cameraRenderer,
                         lightRenderer,
                         planeRenderer,
                         modelRenderer,

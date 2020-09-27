@@ -2,17 +2,20 @@ package com.example.app.arcore
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.hardware.camera2.*
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.media.Image
 import android.opengl.EGLContext
 import android.opengl.Matrix
 import android.os.Build
+import android.os.Handler
 import android.util.DisplayMetrics
 import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.updateLayoutParams
-import arrow.core.orNull
 import com.example.app.*
 import com.example.app.filament.Filament
 import com.google.android.filament.*
@@ -49,7 +52,7 @@ class ArCore(private val activity: Activity, private val view: View) {
     }
 
     val eglContext: EGLContext = createEglContext().orNull()!!
-    private val arCameraStreamTextureId1: Int = createExternalTextureId()
+    private val cameraStreamTextureId: Int = createExternalTextureId()
 
     val session: Session = Session(activity)
         .also { session ->
@@ -57,14 +60,21 @@ class ArCore(private val activity: Activity, private val view: View) {
                 .apply {
                     planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
                     focusMode = Config.FocusMode.AUTO
-                    depthMode = Config.DepthMode.DISABLED
+
+                    depthMode =
+                        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
+                            Config.DepthMode.AUTOMATIC
+                        } else {
+                            Config.DepthMode.DISABLED
+                        }
+
                     lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
                     // getting ar frame doesn't block and gives last frame
                     updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                 }
                 .let(session::configure)
 
-            session.setCameraTextureName(arCameraStreamTextureId1)
+            session.setCameraTextureName(cameraStreamTextureId)
         }
 
     private val cameraId: String = session.cameraConfig.cameraId
@@ -81,9 +91,10 @@ class ArCore(private val activity: Activity, private val view: View) {
     var arCameraStreamTransform: Int = 0
 
     lateinit var frame: Frame
-    private lateinit var arCameraStreamMaterialInstance1: MaterialInstance
+
     private lateinit var cameraDevice: CameraDevice
     private lateinit var arCameraStreamVertexBuffer: VertexBuffer
+    private lateinit var depthTexture: Texture
 
     fun destroy() {
         session.close()
@@ -175,55 +186,6 @@ class ArCore(private val activity: Activity, private val view: View) {
     }
 
     private fun init(filament: Filament) {
-        val camera = frame.camera
-        val intrinsics = camera.textureIntrinsics
-        val dimensions = intrinsics.imageDimensions
-        val width = dimensions[0]
-        val height = dimensions[1]
-
-        arCameraStreamMaterialInstance1 = activity
-            .readUncompressedAsset("materials/unlit.filamat")
-            .let { byteBuffer ->
-                Material
-                    .Builder()
-                    .payload(byteBuffer, byteBuffer.remaining())
-            }
-            .build(filament.engine)
-            .createInstance()
-            .apply {
-                setParameter(
-                    "videoTexture",
-                    Texture
-                        .Builder()
-                        .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
-                        .format(Texture.InternalFormat.RGB8)
-                        .build(filament.engine)
-                        .apply {
-                            setExternalStream(
-                                filament.engine,
-                                Stream
-                                    .Builder()
-                                    .stream(arCameraStreamTextureId1.toLong())
-                                    .width(width)
-                                    .height(height)
-                                    .build(filament.engine)
-                            )
-                        },
-                    TextureSampler(
-                        TextureSampler.MinFilter.LINEAR,
-                        TextureSampler.MagFilter.LINEAR,
-                        TextureSampler.WrapMode.CLAMP_TO_EDGE
-                    )
-                )
-            }
-
-        val cameraIndexBuffer: IndexBuffer = IndexBuffer
-            .Builder()
-            .indexCount(arCameraStreamTriangleIndices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(filament.engine)
-            .apply { setBuffer(filament.engine, arCameraStreamTriangleIndices.toShortBuffer()) }
-
         arCameraStreamVertexBuffer = VertexBuffer
             .Builder()
             .vertexCount(arCameraStreamTriangleIndices.size)
@@ -252,22 +214,14 @@ class ArCore(private val activity: Activity, private val view: View) {
 
         arCameraStreamRenderable = EntityManager.get().create()
 
-        RenderableManager
-            .Builder(1)
-            .castShadows(false)
-            .receiveShadows(false)
-            .culling(false)
-            .priority(7) // Always draw the camera feed last to avoid overdraw
-            .geometry(0, PrimitiveType.TRIANGLES, arCameraStreamVertexBuffer, cameraIndexBuffer)
-            .material(0, arCameraStreamMaterialInstance1)
-            .build(filament.engine, arCameraStreamRenderable)
-
         // add to the scene
         filament.scene.addEntity(arCameraStreamRenderable)
 
         arCameraStreamTransform = filament.engine.transformManager.create(arCameraStreamRenderable)
         configurationChange(filament)
     }
+
+    var hasDepthImage: Boolean = false
 
     fun update(frame: Frame, filament: Filament) {
         val firstFrame = this::frame.isInitialized.not()
@@ -309,5 +263,87 @@ class ArCore(private val activity: Activity, private val view: View) {
 
         arCameraStreamVertexBuffer
             .setBufferAt(filament.engine, arCameraStreamPositionBufferIndex, vertexBufferData)
+
+        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC) && hasDepthImage.not()) {
+            try {
+                val depthImage = frame.acquireDepthImage()
+                hasDepthImage = true
+
+                if (this::depthTexture.isInitialized.not()) {
+                    initTextures(filament, depthImage)
+                }
+
+                depthTexture.setImage(
+                    filament.engine,
+                    0,
+                    Texture.PixelBufferDescriptor(
+                        depthImage.planes[0].buffer,
+                        Texture.Format.RG,
+                        Texture.Type.UBYTE,
+                        1,
+                        0,
+                        0,
+                        0,
+                        @Suppress("DEPRECATION")
+                        Handler()
+                    ) {
+                        depthImage.close()
+                        hasDepthImage = false
+                    }
+                )
+            } catch (error: Throwable) {
+            }
+        }
+
+        // update camera projection
+        filament.setProjectionMatrix(frame.projectionMatrix())
+
+        // update camera transform
+        filament.setCameraMatrix(arCameraStreamTransform, frame.camera.displayOrientedPose.matrix())
+    }
+
+    private fun initTextures(filament: Filament, depthImage: Image) {
+        val cameraIndexBuffer: IndexBuffer = IndexBuffer
+            .Builder()
+            .indexCount(arCameraStreamTriangleIndices.size)
+            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+            .build(filament.engine)
+            .apply { setBuffer(filament.engine, arCameraStreamTriangleIndices.toShortBuffer()) }
+
+        RenderableManager
+            .Builder(1)
+            .castShadows(false)
+            .receiveShadows(false)
+            .culling(false)
+            .priority(7) // Always draw the camera feed last to avoid overdraw
+            .geometry(0, PrimitiveType.TRIANGLES, arCameraStreamVertexBuffer, cameraIndexBuffer)
+            .material(
+                0,
+                activity
+                    .readUncompressedAsset("materials/camera.filamat")
+                    .let { byteBuffer ->
+                        Material
+                            .Builder()
+                            .payload(byteBuffer, byteBuffer.remaining())
+                    }
+                    .build(filament.engine)
+                    .createInstance()
+                    .also { materialInstance ->
+                        materialInstance.setParameter(
+                            "depthTexture",
+                            Texture
+                                .Builder()
+                                .width(depthImage.width)
+                                .height(depthImage.height)
+                                .sampler(Texture.Sampler.SAMPLER_2D)
+                                .format(Texture.InternalFormat.RG8)
+                                .levels(1)
+                                .build(filament.engine)
+                                .also { depthTexture = it },
+                            TextureSampler()
+                        )
+                    }
+            )
+            .build(filament.engine, arCameraStreamRenderable)
     }
 }

@@ -21,7 +21,7 @@ class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
 
     var timestamp: Long = 0L
     val engine: Engine = Engine.create(arCore.eglContext)
-    val renderer: Renderer = engine.createRenderer().apply { clearOptions }
+    val renderer: Renderer = engine.createRenderer()
     val scene: Scene = engine.createScene()
 
     private val camera: Camera = engine

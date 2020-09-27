@@ -1,0 +1,26 @@
+material {
+    name : camera,
+    shadingModel : unlit,
+    blending : opaque,
+    depthWrite : false,
+    depthCulling : true,
+    parameters : [
+        {
+            type : sampler2d,
+            name : depthTexture
+        }
+    ],
+    requires : [
+        uv0
+    ]
+}
+fragment {
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec4 packedDepthAndVisibility = texture(materialParams_depthTexture, getUV0());
+        float depth_mm = dot(packedDepthAndVisibility.xy, vec2(255.f, 256.f * 255.f));
+        float max_mm = 256.f * 13.f;
+        float depth = depth_mm / max_mm;
+        material.baseColor.rgba = vec4(depth, depth, depth, 1.f);
+    }
+}

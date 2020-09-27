@@ -17,7 +17,6 @@ sealed class TouchEvent(val x: Float, val y: Float) {
 data class ArContext(
     val arCore: ArCore,
     val filament: Filament,
-    val cameraRenderer: CameraRenderer,
     val lightRenderer: LightRenderer,
     val planeRenderer: PlaneRenderer,
     val modelRenderer: ModelRenderer,
