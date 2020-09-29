@@ -2,9 +2,11 @@ material {
     name : camera,
     shadingModel : unlit,
     blending : opaque,
-    depthWrite : false,
-    depthCulling : true,
     parameters : [
+        {
+            type : samplerExternal,
+            name : cameraTexture
+        },
         {
             type : sampler2d,
             name : depthTexture
@@ -14,13 +16,36 @@ material {
         uv0
     ]
 }
+
 fragment {
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
-        vec4 packedDepthAndVisibility = texture(materialParams_depthTexture, getUV0());
-        float depth_mm = dot(packedDepthAndVisibility.xy, vec2(255.f, 256.f * 255.f));
-        float max_mm = 256.f * 13.f;
-        float depth = depth_mm / max_mm;
-        material.baseColor.rgba = vec4(depth, depth, depth, 1.f);
+        material.baseColor.rgb = inverseTonemapSRGB(texture(materialParams_cameraTexture, getUV0()).rgb);
+        material.baseColor.a = 1.f;
+    }
+}
+
+vertex {
+    void materialVertex(inout MaterialVertexInputs material) {
+        vec2 packed_depth = texture(materialParams_depthTexture, material.uv0).xy;
+        float depth_mm = dot(packed_depth, vec2(255.f, 256.f * 255.f));
+        vec4 view = getPosition();
+
+        // primary method
+        view.z = depth_mm / -1000.f;
+        vec4 clip = mulMat4x4Float3(getClipFromViewMatrix(), view.xyz);
+        vec4 scale = mulMat4x4Float3(getViewFromClipMatrix(), vec3(1.f, 1.f, 0.f));
+        view.x *= clip.w * scale.x;
+        view.y *= clip.w * scale.y;
+        material.worldPosition = mulMat4x4Float3(getWorldFromViewMatrix(), view.xyz);
+
+        // alternate method
+        //view.z = depth_mm / -1000.f;
+        //vec4 scale = mulMat4x4Float3(getViewFromClipMatrix(), vec3(1.f, 1.f, 0.f));
+        //vec4 world = mulMat4x4Float3(getWorldFromModelMatrix(), view.xyz);
+        //vec4 clip = mulMat4x4Float3(getClipFromWorldMatrix(), world.xyz);
+        //view.x *= clip.w * scale.x;
+        //view.y *= clip.w * scale.y;
+        //material.worldPosition = mulMat4x4Float3(getWorldFromModelMatrix(), view.xyz);
     }
 }

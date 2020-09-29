@@ -17,11 +17,7 @@ import io.reactivex.subjects.PublishSubject
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-class ModelRenderer(
-    context: Context,
-    private val arCore: ArCore,
-    private val filament: Filament
-) {
+class ModelRenderer(context: Context, private val arCore: ArCore, private val filament: Filament) {
     sealed class ModelEvent {
         data class Move(val screenPosition: ScreenPosition) : ModelEvent()
         data class Update(val rotate: Float, val scale: Float) : ModelEvent()
@@ -59,10 +55,7 @@ class ModelRenderer(
             .scan(Pair(0f, 1f), { (rotate, scale), modelEvent ->
                 when (modelEvent) {
                     is ModelEvent.Update ->
-                        Pair(
-                            (rotate + modelEvent.rotate).clampToTau,
-                            scale * modelEvent.scale
-                        )
+                        Pair((rotate + modelEvent.rotate).clampToTau, scale * modelEvent.scale)
                     else ->
                         Pair(rotate, scale)
                 }
@@ -104,26 +97,22 @@ class ModelRenderer(
 
                             animator.updateBoneMatrices()
                         }
-
-                        Unit
                     },
                     Observable.combineLatest(
                         translationBehavior,
                         rotateScaleBehavior,
-                        { translation, (rotation, scale) ->
+                        doFrameEvent,
+                        { translation, (rotation, scale), _ ->
                             filament.scene.addEntities(filamentAsset.entities)
 
                             filament.engine.transformManager.setTransform(
                                 filament.engine.transformManager.getInstance(filamentAsset.root),
-
                                 m4Identity()
                                     .translate(translation.x, translation.y, translation.z)
                                     .rotate(rotation.toDegrees, 0f, 1f, 0f)
                                     .scale(scale, scale, scale)
-                                    .floatArray
+                                    .floatArray,
                             )
-
-                            Unit
                         }
                     )
                 )

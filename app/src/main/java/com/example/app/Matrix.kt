@@ -5,6 +5,7 @@ import android.content.Context
 import android.opengl.Matrix
 import android.os.Build
 import android.view.Surface
+import com.example.app.arcore.ArCore
 import com.example.app.filament.Filament
 import com.google.ar.core.Frame
 import com.google.ar.core.Pose
@@ -97,7 +98,7 @@ fun FloatArray.toDoubleArray(): DoubleArray = DoubleArray(size)
     }
 
 fun Frame.projectionMatrix(): M4 = FloatArray(16)
-    .apply { camera.getProjectionMatrix(this, 0, Filament.near, Filament.far) }
+    .apply { camera.getProjectionMatrix(this, 0, ArCore.near, ArCore.far) }
     .let { M4(it) }
 
 @Suppress("DEPRECATION")

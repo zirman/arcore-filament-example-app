@@ -7,7 +7,6 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.media.Image
 import android.opengl.EGLContext
-import android.opengl.Matrix
 import android.os.Build
 import android.os.Handler
 import android.util.DisplayMetrics
@@ -28,31 +27,17 @@ import kotlin.math.roundToInt
 @SuppressLint("MissingPermission")
 class ArCore(private val activity: Activity, private val view: View) {
     companion object {
-        private val cameraScreenSpaceVertices: V4A =
-            floatArrayOf(
-                -1f, +1f, -1f, 1f,
-                -1f, -3f, -1f, 1f,
-                +3f, +1f, -1f, 1f
-            )
-                .let { V4A(it) }
-
-        private val arCameraStreamTriangleIndices: ShortArray =
-            shortArrayOf(0, 1, 2)
-
-        private val cameraUvs: V2A =
-            floatArrayOf(
-                0f, 0f,
-                2f, 0f,
-                0f, 2f
-            )
-                .let { V2A(it) }
-
-        private const val arCameraStreamPositionBufferIndex: Int = 0
-        private const val arCameraStreamUvBufferIndex: Int = 1
+        const val near = 0.1f
+        const val far = 30f
+        private const val positionBufferIndex: Int = 0
+        private const val uvBufferIndex: Int = 1
     }
 
     val eglContext: EGLContext = createEglContext().orNull()!!
     private val cameraStreamTextureId: Int = createExternalTextureId()
+
+    @Entity
+    var renderable: Int = 0
 
     val session: Session = Session(activity)
         .also { session ->
@@ -84,16 +69,10 @@ class ArCore(private val activity: Activity, private val view: View) {
 
     var timestamp: Long = 0L
 
-    @Entity
-    private var arCameraStreamRenderable: Int = 0
-
-    @EntityInstance
-    var arCameraStreamTransform: Int = 0
-
     lateinit var frame: Frame
 
     private lateinit var cameraDevice: CameraDevice
-    private lateinit var arCameraStreamVertexBuffer: VertexBuffer
+
     private lateinit var depthTexture: Texture
 
     fun destroy() {
@@ -102,7 +81,7 @@ class ArCore(private val activity: Activity, private val view: View) {
         destroyEglContext(eglContext)
     }
 
-    fun configurationChange(filament: Filament) {
+    fun configurationChange() {
         if (this::frame.isInitialized.not()) return
 
         val intrinsics = frame.camera.textureIntrinsics
@@ -177,48 +156,6 @@ class ArCore(private val activity: Activity, private val view: View) {
         }
 
         session.setDisplayGeometry(displayRotation, viewWidth, viewHeight)
-
-        arCameraStreamVertexBuffer.setBufferAt(
-            filament.engine,
-            arCameraStreamUvBufferIndex,
-            cameraUvs.floatArray.toFloatBuffer()
-        )
-    }
-
-    private fun init(filament: Filament) {
-        arCameraStreamVertexBuffer = VertexBuffer
-            .Builder()
-            .vertexCount(arCameraStreamTriangleIndices.size)
-            .bufferCount(2)
-            .attribute(
-                VertexAttribute.POSITION,
-                arCameraStreamPositionBufferIndex,
-                AttributeType.FLOAT4,
-                0,
-                0
-            )
-            .attribute(
-                VertexAttribute.UV0,
-                arCameraStreamUvBufferIndex,
-                AttributeType.FLOAT2,
-                0,
-                0
-            )
-            .build(filament.engine)
-
-        arCameraStreamVertexBuffer.setBufferAt(
-            filament.engine,
-            arCameraStreamUvBufferIndex,
-            cameraUvs.floatArray.toFloatBuffer()
-        )
-
-        arCameraStreamRenderable = EntityManager.get().create()
-
-        // add to the scene
-        filament.scene.addEntity(arCameraStreamRenderable)
-
-        arCameraStreamTransform = filament.engine.transformManager.create(arCameraStreamRenderable)
-        configurationChange(filament)
     }
 
     var hasDepthImage: Boolean = false
@@ -228,41 +165,8 @@ class ArCore(private val activity: Activity, private val view: View) {
         this.frame = frame
 
         if (firstFrame) {
-            init(filament)
+            configurationChange()
         }
-
-        val projectionMatrixInv = m4Rotate(-activity.displayRotationDegrees().toFloat(), 0f, 0f, 1f)
-            .multiply(frame.projectionMatrix()).invert()
-
-        val cameraVertices = FloatArray(cameraScreenSpaceVertices.floatArray.size)
-
-        for (i in cameraScreenSpaceVertices.floatArray.indices step 4) {
-            Matrix.multiplyMV(
-                cameraVertices,
-                i,
-                projectionMatrixInv.floatArray,
-                0,
-                cameraScreenSpaceVertices.floatArray,
-                i
-            )
-        }
-
-        for (i in cameraScreenSpaceVertices.floatArray.indices step 4) {
-            cameraVertices[i + 0] *= cameraVertices[i + 3]
-            cameraVertices[i + 1] *= cameraVertices[i + 3]
-            cameraVertices[i + 2] *= cameraVertices[i + 3]
-            cameraVertices[i + 3] *= 1f
-        }
-
-        val vertexBufferData = cameraVertices.toFloatBuffer()
-
-        vertexBufferData.rewind()
-
-        arCameraStreamVertexBuffer
-            .setBufferAt(filament.engine, arCameraStreamPositionBufferIndex, vertexBufferData)
-
-        arCameraStreamVertexBuffer
-            .setBufferAt(filament.engine, arCameraStreamPositionBufferIndex, vertexBufferData)
 
         if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC) && hasDepthImage.not()) {
             try {
@@ -296,27 +200,118 @@ class ArCore(private val activity: Activity, private val view: View) {
         }
 
         // update camera projection
-        filament.setProjectionMatrix(frame.projectionMatrix())
+        //filament.setProjectionMatrix(frame.projectionMatrix())
+        filament.camera.setCustomProjection(
+            frame.projectionMatrix().floatArray.toDoubleArray(),
+            near.toDouble(),
+            far.toDouble()
+        )
 
-        // update camera transform
-        filament.setCameraMatrix(arCameraStreamTransform, frame.camera.displayOrientedPose.matrix())
+        val cameraTransform = frame.camera.displayOrientedPose.matrix()
+        filament.camera.setModelMatrix(cameraTransform.floatArray)
+        val instance = filament.engine.transformManager.create(renderable)
+        filament.engine.transformManager.setTransform(instance, cameraTransform.floatArray)
     }
 
     private fun initTextures(filament: Filament, depthImage: Image) {
-        val cameraIndexBuffer: IndexBuffer = IndexBuffer
-            .Builder()
-            .indexCount(arCameraStreamTriangleIndices.size)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(filament.engine)
-            .apply { setBuffer(filament.engine, arCameraStreamTriangleIndices.toShortBuffer()) }
+        val tesWidth = depthImage.width
+        val tesHeight = depthImage.height
+        val clipPosition: V2A =
+            FloatArray(((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
+                .let { V2A(it) }
+
+        val uvs: V2A =
+            FloatArray(((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
+                .let { V2A(it) }
+
+        for (k in 0..tesHeight) {
+            val v = k.toFloat() / tesHeight.toFloat()
+            val y = (k.toFloat() / tesHeight.toFloat()) * 2f - 1f
+
+            for (i in 0..tesWidth) {
+                val u = i.toFloat() / tesWidth.toFloat()
+                val x = (i.toFloat() / tesWidth.toFloat()) * 2f - 1f
+                clipPosition.set(k * (tesWidth + 1) + i, x, y)
+                uvs.set(k * (tesWidth + 1) + i, u, v)
+            }
+        }
+
+        val triangleIndices = ShortArray(tesWidth * tesHeight * 6)
+        for (k in 0 until tesHeight) {
+            for (i in 0 until tesWidth) {
+                triangleIndices[((k * tesWidth + i) * 6) + 0] =
+                    ((k * (tesWidth + 1)) + i + 0).toShort()
+                triangleIndices[((k * tesWidth + i) * 6) + 1] =
+                    ((k * (tesWidth + 1)) + i + 1).toShort()
+                triangleIndices[((k * tesWidth + i) * 6) + 2] =
+                    ((k + 1) * (tesWidth + 1) + i).toShort()
+
+                triangleIndices[((k * tesWidth + i) * 6) + 3] =
+                    ((k + 1) * (tesWidth + 1) + i).toShort()
+                triangleIndices[((k * tesWidth + i) * 6) + 4] =
+                    ((k * (tesWidth + 1)) + i + 1).toShort()
+                triangleIndices[((k * tesWidth + i) * 6) + 5] =
+                    ((k + 1) * (tesWidth + 1) + i + 1).toShort()
+            }
+        }
+
+//        Log.e("FOOBAR", "${clipPosition.count()} ${clipPosition.floatArray.joinToString(", ")}")
+//        Log.e("FOOBAR", "${uvs.count()} ${uvs.floatArray.joinToString(", ")}")
+//        Log.e("FOOBAR", "${triangleIndices.size} ${triangleIndices.joinToString(", ")}")
+
+        val camera = frame.camera
+        val intrinsics = camera.textureIntrinsics
+        val dimensions = intrinsics.imageDimensions
+        val width = dimensions[0]
+        val height = dimensions[1]
 
         RenderableManager
             .Builder(1)
             .castShadows(false)
             .receiveShadows(false)
             .culling(false)
-            .priority(7) // Always draw the camera feed last to avoid overdraw
-            .geometry(0, PrimitiveType.TRIANGLES, arCameraStreamVertexBuffer, cameraIndexBuffer)
+            .geometry(
+                0,
+                PrimitiveType.TRIANGLES,
+                VertexBuffer
+                    .Builder()
+                    .vertexCount(clipPosition.count())
+                    .bufferCount(2)
+                    .attribute(
+                        VertexAttribute.POSITION,
+                        positionBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0
+                    )
+                    .attribute(
+                        VertexAttribute.UV0,
+                        uvBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0
+                    )
+                    .build(filament.engine)
+                    .also { vertexBuffer ->
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            positionBufferIndex,
+                            clipPosition.floatArray.toFloatBuffer()
+                        )
+
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            uvBufferIndex,
+                            uvs.floatArray.toFloatBuffer()
+                        )
+                    },
+                IndexBuffer
+                    .Builder()
+                    .indexCount(triangleIndices.size)
+                    .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+                    .build(filament.engine)
+                    .apply { setBuffer(filament.engine, triangleIndices.toShortBuffer()) }
+            )
             .material(
                 0,
                 activity
@@ -330,6 +325,32 @@ class ArCore(private val activity: Activity, private val view: View) {
                     .createInstance()
                     .also { materialInstance ->
                         materialInstance.setParameter(
+                            "cameraTexture",
+                            Texture
+                                .Builder()
+                                .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
+                                .format(Texture.InternalFormat.RGB8)
+                                .build(filament.engine)
+                                .apply {
+                                    setExternalStream(
+                                        filament.engine,
+                                        Stream
+                                            .Builder()
+                                            .stream(cameraStreamTextureId.toLong())
+                                            .width(width)
+                                            .height(height)
+                                            .build(filament.engine)
+                                    )
+                                },
+                            TextureSampler(
+                                TextureSampler.MinFilter.LINEAR,
+                                TextureSampler.MagFilter.LINEAR,
+                                TextureSampler.WrapMode.CLAMP_TO_EDGE
+                            )
+                            //.also { it.anisotropy = 8.0f }
+                        )
+
+                        materialInstance.setParameter(
                             "depthTexture",
                             Texture
                                 .Builder()
@@ -340,10 +361,16 @@ class ArCore(private val activity: Activity, private val view: View) {
                                 .levels(1)
                                 .build(filament.engine)
                                 .also { depthTexture = it },
-                            TextureSampler()
+                            TextureSampler()//.also { it.anisotropy = 8.0f }
                         )
                     }
             )
-            .build(filament.engine, arCameraStreamRenderable)
+            .build(
+                filament.engine,
+                EntityManager.get().create().also { entity ->
+                    filament.scene.addEntity(entity)
+                    renderable = entity
+                }
+            )
     }
 }

@@ -240,11 +240,9 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
         arContextSignal
             .firstOrError()
-            .flatMapObservable { arContext ->
-                configurationChangedEvents.map { Pair(arContext.arCore, arContext.filament) }
-            }
+            .flatMapObservable { arContext -> configurationChangedEvents.map { arContext.arCore } }
             .subscribe(
-                { (arCore, filament) -> arCore.configurationChange(filament) },
+                { arCore -> arCore.configurationChange() },
                 { errorHandler(it) }
             )
             .let { onCreateDisposable.add(it) }
