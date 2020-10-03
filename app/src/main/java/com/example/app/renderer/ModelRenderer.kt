@@ -7,6 +7,7 @@ import com.example.app.arcore.ArCore
 import com.example.app.filament.Filament
 import com.google.android.filament.gltfio.FilamentAsset
 import com.google.ar.core.Frame
+import com.google.ar.core.Point
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -41,7 +42,7 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
                                 filament.surfaceView.width.toFloat() * modelEvent.screenPosition.x,
                                 filament.surfaceView.height.toFloat() * modelEvent.screenPosition.y
                             )
-                            .firstOrNull()
+                            .maxByOrNull { it.trackable is Point }
                     }
                     ?.let { V3(it.hitPose.translation) }
                     ?.let { Observable.just(it) }

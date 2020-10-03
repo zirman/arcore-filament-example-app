@@ -6,10 +6,10 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.media.Image
-import android.opengl.EGLContext
 import android.os.Build
 import android.os.Handler
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
@@ -24,8 +24,14 @@ import com.google.android.filament.VertexBuffer.VertexAttribute
 import com.google.ar.core.*
 import kotlin.math.roundToInt
 
+class ModelBuffers(val clipPosition: V2A, val uvs: V2A, val triangleIndices: ShortArray)
+
 @SuppressLint("MissingPermission")
-class ArCore(private val activity: Activity, private val view: View) {
+class ArCore(
+    private val activity: Activity,
+    val filament: Filament,
+    private val view: View
+) {
     companion object {
         const val near = 0.1f
         const val far = 30f
@@ -33,11 +39,16 @@ class ArCore(private val activity: Activity, private val view: View) {
         private const val uvBufferIndex: Int = 1
     }
 
-    val eglContext: EGLContext = createEglContext().orNull()!!
     private val cameraStreamTextureId: Int = createExternalTextureId()
+    private lateinit var stream: Stream
+    private lateinit var depthMaterialInstance: MaterialInstance
+    private lateinit var flatMaterialInstance: MaterialInstance
 
     @Entity
-    var renderable: Int = 0
+    var depthRenderable: Int = 0
+
+    @Entity
+    var flatRenderable: Int = 0
 
     val session: Session = Session(activity)
         .also { session ->
@@ -47,11 +58,8 @@ class ArCore(private val activity: Activity, private val view: View) {
                     focusMode = Config.FocusMode.AUTO
 
                     depthMode =
-                        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
-                            Config.DepthMode.AUTOMATIC
-                        } else {
-                            Config.DepthMode.DISABLED
-                        }
+                        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Config.DepthMode.AUTOMATIC
+                        else Config.DepthMode.DISABLED
 
                     lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
                     // getting ar frame doesn't block and gives last frame
@@ -78,8 +86,9 @@ class ArCore(private val activity: Activity, private val view: View) {
     fun destroy() {
         session.close()
         cameraDevice.close()
-        destroyEglContext(eglContext)
     }
+
+    var displayRotationDegrees: Int = 0
 
     fun configurationChange() {
         if (this::frame.isInitialized.not()) return
@@ -103,6 +112,15 @@ class ArCore(private val activity: Activity, private val view: View) {
 
                 displayWidth = displayMetrics.widthPixels
                 displayHeight = displayMetrics.heightPixels
+            }
+
+        displayRotationDegrees =
+            when (displayRotation) {
+                Surface.ROTATION_0 -> 0
+                Surface.ROTATION_90 -> 90
+                Surface.ROTATION_180 -> 180
+                Surface.ROTATION_270 -> 270
+                else -> throw Exception("Invalid Display Rotation")
             }
 
         // camera width and height relative to display
@@ -166,63 +184,299 @@ class ArCore(private val activity: Activity, private val view: View) {
 
         if (firstFrame) {
             configurationChange()
-        }
+            val camera = frame.camera
+            val intrinsics = camera.textureIntrinsics
+            val dimensions = intrinsics.imageDimensions
+            val width = dimensions[0]
+            val height = dimensions[1]
 
-        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC) && hasDepthImage.not()) {
-            try {
-                val depthImage = frame.acquireDepthImage()
-                hasDepthImage = true
+            stream = Stream
+                .Builder()
+                .stream(cameraStreamTextureId.toLong())
+                .width(width)
+                .height(height)
+                .build(filament.engine)
 
-                if (this::depthTexture.isInitialized.not()) {
-                    initTextures(filament, depthImage)
+            flatMaterialInstance = activity
+                .readUncompressedAsset("materials/flat.filamat")
+                .let { byteBuffer ->
+                    Material
+                        .Builder()
+                        .payload(byteBuffer, byteBuffer.remaining())
+                }
+                .build(filament.engine)
+                .createInstance()
+                .also { materialInstance ->
+                    materialInstance.setParameter(
+                        "cameraTexture",
+                        Texture
+                            .Builder()
+                            .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
+                            .format(Texture.InternalFormat.RGB8)
+                            .build(filament.engine)
+                            .apply { setExternalStream(filament.engine, stream) },
+                        TextureSampler(
+                            TextureSampler.MinFilter.LINEAR,
+                            TextureSampler.MagFilter.LINEAR,
+                            TextureSampler.WrapMode.CLAMP_TO_EDGE,
+                        )
+                    )
+
+                    materialInstance.setParameter(
+                        "uvTransform",
+                        MaterialInstance.FloatElement.FLOAT4,
+                        m4Identity().floatArray,
+                        0,
+                        4,
+                    )
                 }
 
-                depthTexture.setImage(
-                    filament.engine,
-                    0,
-                    Texture.PixelBufferDescriptor(
-                        depthImage.planes[0].buffer,
-                        Texture.Format.RG,
-                        Texture.Type.UBYTE,
-                        1,
-                        0,
-                        0,
-                        0,
-                        @Suppress("DEPRECATION")
-                        Handler()
-                    ) {
-                        depthImage.close()
-                        hasDepthImage = false
-                    }
-                )
-            } catch (error: Throwable) {
-            }
+            initFlat()
         }
 
+        (if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Unit else null)
+            ?.let {
+                if (hasDepthImage.not()) {
+                    try {
+                        val depthImage = frame.acquireDepthImage() as ArImage
+
+                        if (depthImage.planes[0].buffer[0] != 0.toByte()) {
+                            hasDepthImage = true
+
+                            if (this::depthTexture.isInitialized.not()) {
+                                initDepthTextures(depthImage)
+                            }
+
+                            depthTexture.setImage(
+                                filament.engine,
+                                0,
+                                Texture.PixelBufferDescriptor(
+                                    depthImage.planes[0].buffer,
+                                    Texture.Format.RG,
+                                    Texture.Type.UBYTE,
+                                    1,
+                                    0,
+                                    0,
+                                    0,
+                                    @Suppress("DEPRECATION")
+                                    Handler(),
+                                ) {
+                                    depthImage.close()
+                                    hasDepthImage = false
+                                }
+                            )
+
+                            depthMaterialInstance.setParameter(
+                                "uvTransform",
+                                MaterialInstance.FloatElement.FLOAT4,
+                                uvTransform().floatArray,
+                                0,
+                                4,
+                            )
+
+                            filament.scene.removeEntity(flatRenderable)
+                            filament.scene.addEntity(depthRenderable)
+                            Log.e("FOOBAR", "b ${depthImage.planes[0].buffer[0]}")
+                        } else {
+                            null
+                        }
+                    } catch (error: Throwable) {
+                        null
+                    }
+                } else Unit
+            }
+            ?: run {
+                flatMaterialInstance.setParameter(
+                    "uvTransform",
+                    MaterialInstance.FloatElement.FLOAT4,
+                    uvTransform().floatArray,
+                    0,
+                    4,
+                )
+
+                filament.scene.removeEntity(depthRenderable)
+                filament.scene.addEntity(flatRenderable)
+                Log.e("FOOBAR", "a")
+            }
+
         // update camera projection
-        //filament.setProjectionMatrix(frame.projectionMatrix())
         filament.camera.setCustomProjection(
             frame.projectionMatrix().floatArray.toDoubleArray(),
             near.toDouble(),
-            far.toDouble()
+            far.toDouble(),
         )
 
         val cameraTransform = frame.camera.displayOrientedPose.matrix()
         filament.camera.setModelMatrix(cameraTransform.floatArray)
-        val instance = filament.engine.transformManager.create(renderable)
+        val instance = filament.engine.transformManager.create(depthRenderable)
         filament.engine.transformManager.setTransform(instance, cameraTransform.floatArray)
     }
 
-    private fun initTextures(filament: Filament, depthImage: Image) {
-        val tesWidth = depthImage.width
-        val tesHeight = depthImage.height
-        val clipPosition: V2A =
-            FloatArray(((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
-                .let { V2A(it) }
+    private fun initFlat() {
+        val tes = tessellation(1, 1)
 
-        val uvs: V2A =
-            FloatArray(((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
-                .let { V2A(it) }
+        RenderableManager
+            .Builder(1)
+            .castShadows(false)
+            .receiveShadows(false)
+            .culling(false)
+            .geometry(
+                0,
+                PrimitiveType.TRIANGLES,
+                VertexBuffer
+                    .Builder()
+                    .vertexCount(tes.clipPosition.count())
+                    .bufferCount(2)
+                    .attribute(
+                        VertexAttribute.POSITION,
+                        positionBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0,
+                    )
+                    .attribute(
+                        VertexAttribute.UV0,
+                        uvBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0,
+                    )
+                    .build(filament.engine)
+                    .also { vertexBuffer ->
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            positionBufferIndex,
+                            tes.clipPosition.floatArray.toFloatBuffer(),
+                        )
+
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            uvBufferIndex,
+                            tes.uvs.floatArray.toFloatBuffer(),
+                        )
+                    },
+                IndexBuffer
+                    .Builder()
+                    .indexCount(tes.triangleIndices.size)
+                    .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+                    .build(filament.engine)
+                    .apply { setBuffer(filament.engine, tes.triangleIndices.toShortBuffer()) },
+            )
+            .material(0, flatMaterialInstance)
+            .build(filament.engine, EntityManager.get().create().also { flatRenderable = it })
+    }
+
+    private fun initDepthTextures(depthImage: Image) {
+        val tes = tessellation(depthImage.width, depthImage.height)
+
+        depthMaterialInstance = activity
+            .readUncompressedAsset("materials/depth.filamat")
+            .let { byteBuffer ->
+                Material
+                    .Builder()
+                    .payload(byteBuffer, byteBuffer.remaining())
+            }
+            .build(filament.engine)
+            .createInstance()
+            .also { materialInstance ->
+                materialInstance.setParameter(
+                    "cameraTexture",
+                    Texture
+                        .Builder()
+                        .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
+                        .format(Texture.InternalFormat.RGB8)
+                        .build(filament.engine)
+                        .apply { setExternalStream(filament.engine, stream) },
+                    TextureSampler(
+                        TextureSampler.MinFilter.LINEAR,
+                        TextureSampler.MagFilter.LINEAR,
+                        TextureSampler.WrapMode.CLAMP_TO_EDGE,
+                    ),
+                    //.also { it.anisotropy = 8.0f }
+                )
+
+                materialInstance.setParameter(
+                    "depthTexture",
+                    Texture
+                        .Builder()
+                        .width(depthImage.width)
+                        .height(depthImage.height)
+                        .sampler(Texture.Sampler.SAMPLER_2D)
+                        .format(Texture.InternalFormat.RG8)
+                        .levels(1)
+                        .build(filament.engine)
+                        .also { depthTexture = it },
+                    TextureSampler(), //.also { it.anisotropy = 8.0f }
+                )
+
+                materialInstance.setParameter(
+                    "uvTransform",
+                    MaterialInstance.FloatElement.FLOAT4,
+                    m4Identity().floatArray,
+                    0,
+                    4,
+                )
+            }
+
+        RenderableManager
+            .Builder(1)
+            .castShadows(false)
+            .receiveShadows(false)
+            .culling(false)
+            .geometry(
+                0,
+                PrimitiveType.TRIANGLES,
+                VertexBuffer
+                    .Builder()
+                    .vertexCount(tes.clipPosition.count())
+                    .bufferCount(2)
+                    .attribute(
+                        VertexAttribute.POSITION,
+                        positionBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0,
+                    )
+                    .attribute(
+                        VertexAttribute.UV0,
+                        uvBufferIndex,
+                        AttributeType.FLOAT2,
+                        0,
+                        0,
+                    )
+                    .build(filament.engine)
+                    .also { vertexBuffer ->
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            positionBufferIndex,
+                            tes.clipPosition.floatArray.toFloatBuffer()
+                        )
+
+                        vertexBuffer.setBufferAt(
+                            filament.engine,
+                            uvBufferIndex,
+                            tes.uvs.floatArray.toFloatBuffer()
+                        )
+                    },
+                IndexBuffer
+                    .Builder()
+                    .indexCount(tes.triangleIndices.size)
+                    .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+                    .build(filament.engine)
+                    .apply { setBuffer(filament.engine, tes.triangleIndices.toShortBuffer()) },
+            )
+            .material(0, depthMaterialInstance)
+            .build(filament.engine, EntityManager.get().create().also { depthRenderable = it })
+    }
+
+    private fun tessellation(tesWidth: Int, tesHeight: Int): ModelBuffers {
+        val clipPosition: V2A = (((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
+            .let { FloatArray(it) }
+            .let { V2A(it) }
+
+        val uvs: V2A = (((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
+            .let { FloatArray(it) }
+            .let { V2A(it) }
 
         for (k in 0..tesHeight) {
             val v = k.toFloat() / tesHeight.toFloat()
@@ -237,6 +491,7 @@ class ArCore(private val activity: Activity, private val view: View) {
         }
 
         val triangleIndices = ShortArray(tesWidth * tesHeight * 6)
+
         for (k in 0 until tesHeight) {
             for (i in 0 until tesWidth) {
                 triangleIndices[((k * tesWidth + i) * 6) + 0] =
@@ -255,122 +510,22 @@ class ArCore(private val activity: Activity, private val view: View) {
             }
         }
 
-//        Log.e("FOOBAR", "${clipPosition.count()} ${clipPosition.floatArray.joinToString(", ")}")
-//        Log.e("FOOBAR", "${uvs.count()} ${uvs.floatArray.joinToString(", ")}")
-//        Log.e("FOOBAR", "${triangleIndices.size} ${triangleIndices.joinToString(", ")}")
-
-        val camera = frame.camera
-        val intrinsics = camera.textureIntrinsics
-        val dimensions = intrinsics.imageDimensions
-        val width = dimensions[0]
-        val height = dimensions[1]
-
-        RenderableManager
-            .Builder(1)
-            .castShadows(false)
-            .receiveShadows(false)
-            .culling(false)
-            .geometry(
-                0,
-                PrimitiveType.TRIANGLES,
-                VertexBuffer
-                    .Builder()
-                    .vertexCount(clipPosition.count())
-                    .bufferCount(2)
-                    .attribute(
-                        VertexAttribute.POSITION,
-                        positionBufferIndex,
-                        AttributeType.FLOAT2,
-                        0,
-                        0
-                    )
-                    .attribute(
-                        VertexAttribute.UV0,
-                        uvBufferIndex,
-                        AttributeType.FLOAT2,
-                        0,
-                        0
-                    )
-                    .build(filament.engine)
-                    .also { vertexBuffer ->
-                        vertexBuffer.setBufferAt(
-                            filament.engine,
-                            positionBufferIndex,
-                            clipPosition.floatArray.toFloatBuffer()
-                        )
-
-                        vertexBuffer.setBufferAt(
-                            filament.engine,
-                            uvBufferIndex,
-                            uvs.floatArray.toFloatBuffer()
-                        )
-                    },
-                IndexBuffer
-                    .Builder()
-                    .indexCount(triangleIndices.size)
-                    .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-                    .build(filament.engine)
-                    .apply { setBuffer(filament.engine, triangleIndices.toShortBuffer()) }
-            )
-            .material(
-                0,
-                activity
-                    .readUncompressedAsset("materials/camera.filamat")
-                    .let { byteBuffer ->
-                        Material
-                            .Builder()
-                            .payload(byteBuffer, byteBuffer.remaining())
-                    }
-                    .build(filament.engine)
-                    .createInstance()
-                    .also { materialInstance ->
-                        materialInstance.setParameter(
-                            "cameraTexture",
-                            Texture
-                                .Builder()
-                                .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
-                                .format(Texture.InternalFormat.RGB8)
-                                .build(filament.engine)
-                                .apply {
-                                    setExternalStream(
-                                        filament.engine,
-                                        Stream
-                                            .Builder()
-                                            .stream(cameraStreamTextureId.toLong())
-                                            .width(width)
-                                            .height(height)
-                                            .build(filament.engine)
-                                    )
-                                },
-                            TextureSampler(
-                                TextureSampler.MinFilter.LINEAR,
-                                TextureSampler.MagFilter.LINEAR,
-                                TextureSampler.WrapMode.CLAMP_TO_EDGE
-                            )
-                            //.also { it.anisotropy = 8.0f }
-                        )
-
-                        materialInstance.setParameter(
-                            "depthTexture",
-                            Texture
-                                .Builder()
-                                .width(depthImage.width)
-                                .height(depthImage.height)
-                                .sampler(Texture.Sampler.SAMPLER_2D)
-                                .format(Texture.InternalFormat.RG8)
-                                .levels(1)
-                                .build(filament.engine)
-                                .also { depthTexture = it },
-                            TextureSampler()//.also { it.anisotropy = 8.0f }
-                        )
-                    }
-            )
-            .build(
-                filament.engine,
-                EntityManager.get().create().also { entity ->
-                    filament.scene.addEntity(entity)
-                    renderable = entity
-                }
-            )
+        return ModelBuffers(clipPosition, uvs, triangleIndices)
     }
+
+    private fun uvTransform(): M4 = m4Identity()
+        .translate(.5f, .5f, 0f)
+        .rotate(imageRotation().toFloat(), 0f, 0f, -1f)
+        .translate(-.5f, -.5f, 0f)
+
+    private fun imageRotation(): Int = (cameraManager
+        .getCameraCharacteristics(cameraId)
+        .get(CameraCharacteristics.SENSOR_ORIENTATION)!! +
+            when (displayRotationDegrees) {
+                0 -> 90
+                90 -> 0
+                180 -> 270
+                270 -> 180
+                else -> throw Exception()
+            } + 270) % 360
 }

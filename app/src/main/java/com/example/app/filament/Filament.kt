@@ -1,9 +1,11 @@
 package com.example.app.filament
 
 import android.content.Context
+import android.opengl.EGLContext
 import android.view.Surface
 import android.view.SurfaceView
-import com.example.app.arcore.ArCore
+import com.example.app.createEglContext
+import com.example.app.destroyEglContext
 import com.google.android.filament.*
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
@@ -11,9 +13,10 @@ import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.MaterialProvider
 import com.google.android.filament.gltfio.ResourceLoader
 
-class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
+class Filament(context: Context, val surfaceView: SurfaceView) {
     var timestamp: Long = 0L
-    val engine: Engine = Engine.create(arCore.eglContext)
+    private val eglContext: EGLContext = createEglContext().orNull()!!
+    val engine: Engine = Engine.create(eglContext)
     val renderer: Renderer = engine.createRenderer()
     val scene: Scene = engine.createScene()
 
@@ -74,5 +77,6 @@ class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
         // Always detach the surface before destroying the engine
         uiHelper.detach()
         engine.destroy()
+        destroyEglContext(eglContext)
     }
 }
