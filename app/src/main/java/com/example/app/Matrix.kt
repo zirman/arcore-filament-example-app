@@ -5,6 +5,7 @@ import android.content.Context
 import android.opengl.Matrix
 import android.os.Build
 import android.view.Surface
+import com.example.app.arcore.ArCore
 import com.example.app.filament.Filament
 import com.google.ar.core.Frame
 import com.google.ar.core.Pose
@@ -97,7 +98,7 @@ fun FloatArray.toDoubleArray(): DoubleArray = DoubleArray(size)
     }
 
 fun Frame.projectionMatrix(): M4 = FloatArray(16)
-    .apply { camera.getProjectionMatrix(this, 0, Filament.near, Filament.far) }
+    .apply { camera.getProjectionMatrix(this, 0, ArCore.near, ArCore.far) }
     .let { M4(it) }
 
 @Suppress("DEPRECATION")
@@ -130,7 +131,7 @@ inline fun v2aCreate(count: Int, x: (Int) -> Float, y: (Int) -> Float): V2A =
 const val dimenV2A: Int = 2
 inline val V2A.dimen: Int get() = dimenV2A
 fun V2A.count(): Int = floatArray.size / dimen
-val V2A.indices: IntRange get() = IntRange(0, count() - 1)
+inline val V2A.indices: IntRange get() = IntRange(0, count() - 1)
 
 fun V2A.set(i: Int, x: Float, y: Float) {
     floatArray[(i * dimen) + 0] = x
@@ -188,19 +189,19 @@ fun v3(x: Float, y: Float, z: Float): V3 = FloatArray(3)
         it.z = z
     }
 
-var V3.x: Float
+inline var V3.x: Float
     get() = floatArray[0]
     set(x) {
         floatArray[0] = x
     }
 
-var V3.y: Float
+inline var V3.y: Float
     get() = floatArray[1]
     set(y) {
         floatArray[1] = y
     }
 
-var V3.z: Float
+inline var V3.z: Float
     get() = floatArray[2]
     set(z) {
         floatArray[2] = z

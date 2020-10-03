@@ -1,11 +1,11 @@
 package com.example.app.filament
 
 import android.content.Context
+import android.opengl.EGLContext
 import android.view.Surface
 import android.view.SurfaceView
-import com.example.app.arcore.ArCore
-import com.example.app.M4
-import com.example.app.toDoubleArray
+import com.example.app.createEglContext
+import com.example.app.destroyEglContext
 import com.google.android.filament.*
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
@@ -13,18 +13,14 @@ import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.MaterialProvider
 import com.google.android.filament.gltfio.ResourceLoader
 
-class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
-    companion object {
-        const val near = 0.1f
-        const val far = 30f
-    }
-
+class Filament(context: Context, val surfaceView: SurfaceView) {
     var timestamp: Long = 0L
-    val engine: Engine = Engine.create(arCore.eglContext)
-    val renderer: Renderer = engine.createRenderer().apply { clearOptions }
+    private val eglContext: EGLContext = createEglContext().orNull()!!
+    val engine: Engine = Engine.create(eglContext)
+    val renderer: Renderer = engine.createRenderer()
     val scene: Scene = engine.createScene()
 
-    private val camera: Camera = engine
+    val camera: Camera = engine
         .createCamera()
         .also { camera ->
             // Set the exposure on the camera, this exposure follows the sunny f/16 rule
@@ -81,18 +77,6 @@ class Filament(context: Context, arCore: ArCore, val surfaceView: SurfaceView) {
         // Always detach the surface before destroying the engine
         uiHelper.detach()
         engine.destroy()
-    }
-
-    fun setProjectionMatrix(projectionMatrix: M4) {
-        camera.setCustomProjection(
-            projectionMatrix.floatArray.toDoubleArray(),
-            near.toDouble(),
-            far.toDouble()
-        )
-    }
-
-    fun setCameraMatrix(@EntityInstance transform: Int, cameraMatrix: M4) {
-        camera.setModelMatrix(cameraMatrix.floatArray)
-        engine.transformManager.setTransform(transform, cameraMatrix.floatArray)
+        destroyEglContext(eglContext)
     }
 }

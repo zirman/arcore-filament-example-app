@@ -189,23 +189,24 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             .flatMap { checkArCore() }
             .flatMapObservable {
                 Observable.create<ArCore> { observableEmitter ->
-                    val arCore = ArCore(this, surfaceView)
+                    val filament = Filament(this, surfaceView)
+                    val arCore = ArCore(this, filament, surfaceView)
                     observableEmitter.onNext(arCore)
-                    observableEmitter.setCancellable { arCore.destroy() }
+
+                    observableEmitter.setCancellable {
+                        arCore.destroy()
+                        filament.destroy()
+                    }
                 }
             }
             .flatMap { arCore ->
                 Observable.create<ArContext> { observableEmitter ->
-                    val filament = Filament(this, arCore, surfaceView)
-
-                    val cameraRenderer = CameraRenderer(filament, arCore)
-                    val lightRenderer = LightRenderer(filament)
-                    val planeRenderer = PlaneRenderer(this, filament)
-                    val modelRenderer = ModelRenderer(this, arCore, filament)
+                    val lightRenderer = LightRenderer(arCore.filament)
+                    val planeRenderer = PlaneRenderer(this, arCore.filament)
+                    val modelRenderer = ModelRenderer(this, arCore, arCore.filament)
 
                     val frameCallback = FrameCallback(
                         arCore,
-                        filament,
                         doFrame = { frame ->
                             if (frame.getUpdatedTrackables(Plane::class.java)
                                     .any { it.trackingState == TrackingState.TRACKING }
@@ -213,7 +214,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                                 arTrackingEvents.onNext(Unit)
                             }
 
-                            cameraRenderer.doFrame(frame)
                             lightRenderer.doFrame(frame)
                             planeRenderer.doFrame(frame)
                             modelRenderer.doFrame(frame)
@@ -222,8 +222,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
                     ArContext(
                         arCore,
-                        filament,
-                        cameraRenderer,
                         lightRenderer,
                         planeRenderer,
                         modelRenderer,
@@ -233,7 +231,6 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
                     observableEmitter.setCancellable {
                         modelRenderer.destroy()
-                        filament.destroy()
                     }
                 }
                     .subscribeOn(AndroidSchedulers.mainThread())
@@ -243,11 +240,9 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
 
         arContextSignal
             .firstOrError()
-            .flatMapObservable { arContext ->
-                configurationChangedEvents.map { Pair(arContext.arCore, arContext.filament) }
-            }
+            .flatMapObservable { arContext -> configurationChangedEvents.map { arContext.arCore } }
             .subscribe(
-                { (arCore, filament) -> arCore.configurationChange(filament) },
+                { arCore -> arCore.configurationChange() },
                 { errorHandler(it) }
             )
             .let { onCreateDisposable.add(it) }

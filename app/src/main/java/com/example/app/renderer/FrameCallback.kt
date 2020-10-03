@@ -2,13 +2,11 @@ package com.example.app.renderer
 
 import android.view.Choreographer
 import com.example.app.arcore.ArCore
-import com.example.app.filament.Filament
 import com.google.ar.core.Frame
 import java.util.concurrent.TimeUnit
 
 class FrameCallback(
     private val arCore: ArCore,
-    private val filament: Filament,
     private val doFrame: (frame: Frame) -> Unit
 ) : Choreographer.FrameCallback {
     companion object {
@@ -41,13 +39,13 @@ class FrameCallback(
         // render using frame from last tick to reduce possibility of jitter but increases latency
         if (// only render if we have an ar frame
             arCore.timestamp != 0L &&
-            filament.uiHelper.isReadyToRender &&
+            arCore.filament.uiHelper.isReadyToRender &&
             // This means you are sending frames too quickly to the GPU
-            filament.renderer.beginFrame(filament.swapChain!!, frameTimeNanos)
+            arCore.filament.renderer.beginFrame(arCore.filament.swapChain!!, frameTimeNanos)
         ) {
-            filament.timestamp = arCore.timestamp
-            filament.renderer.render(filament.view)
-            filament.renderer.endFrame()
+            arCore.filament.timestamp = arCore.timestamp
+            arCore.filament.renderer.render(arCore.filament.view)
+            arCore.filament.renderer.endFrame()
         }
 
         val frame = arCore.session.update()
@@ -58,7 +56,7 @@ class FrameCallback(
             frame.timestamp != arCore.timestamp
         ) {
             arCore.timestamp = frame.timestamp
-            arCore.update(frame, filament)
+            arCore.update(frame, arCore.filament)
             doFrame(frame)
         }
     }

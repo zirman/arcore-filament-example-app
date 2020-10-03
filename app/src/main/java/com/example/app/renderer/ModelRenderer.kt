@@ -7,6 +7,7 @@ import com.example.app.arcore.ArCore
 import com.example.app.filament.Filament
 import com.google.android.filament.gltfio.FilamentAsset
 import com.google.ar.core.Frame
+import com.google.ar.core.Point
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -17,11 +18,7 @@ import io.reactivex.subjects.PublishSubject
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
-class ModelRenderer(
-    context: Context,
-    private val arCore: ArCore,
-    private val filament: Filament
-) {
+class ModelRenderer(context: Context, private val arCore: ArCore, private val filament: Filament) {
     sealed class ModelEvent {
         data class Move(val screenPosition: ScreenPosition) : ModelEvent()
         data class Update(val rotate: Float, val scale: Float) : ModelEvent()
@@ -45,7 +42,7 @@ class ModelRenderer(
                                 filament.surfaceView.width.toFloat() * modelEvent.screenPosition.x,
                                 filament.surfaceView.height.toFloat() * modelEvent.screenPosition.y
                             )
-                            .firstOrNull()
+                            .maxByOrNull { it.trackable is Point }
                     }
                     ?.let { V3(it.hitPose.translation) }
                     ?.let { Observable.just(it) }
@@ -59,10 +56,7 @@ class ModelRenderer(
             .scan(Pair(0f, 1f), { (rotate, scale), modelEvent ->
                 when (modelEvent) {
                     is ModelEvent.Update ->
-                        Pair(
-                            (rotate + modelEvent.rotate).clampToTau,
-                            scale * modelEvent.scale
-                        )
+                        Pair((rotate + modelEvent.rotate).clampToTau, scale * modelEvent.scale)
                     else ->
                         Pair(rotate, scale)
                 }
@@ -104,26 +98,22 @@ class ModelRenderer(
 
                             animator.updateBoneMatrices()
                         }
-
-                        Unit
                     },
                     Observable.combineLatest(
                         translationBehavior,
                         rotateScaleBehavior,
-                        { translation, (rotation, scale) ->
+                        doFrameEvent,
+                        { translation, (rotation, scale), _ ->
                             filament.scene.addEntities(filamentAsset.entities)
 
                             filament.engine.transformManager.setTransform(
                                 filament.engine.transformManager.getInstance(filamentAsset.root),
-
                                 m4Identity()
                                     .translate(translation.x, translation.y, translation.z)
                                     .rotate(rotation.toDegrees, 0f, 1f, 0f)
                                     .scale(scale, scale, scale)
-                                    .floatArray
+                                    .floatArray,
                             )
-
-                            Unit
                         }
                     )
                 )
