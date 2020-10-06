@@ -9,7 +9,6 @@ import android.media.Image
 import android.os.Build
 import android.os.Handler
 import android.util.DisplayMetrics
-import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
@@ -276,7 +275,6 @@ class ArCore(
 
                             filament.scene.removeEntity(flatRenderable)
                             filament.scene.addEntity(depthRenderable)
-                            Log.e("FOOBAR", "b ${depthImage.planes[0].buffer[0]}")
                         } else {
                             null
                         }
@@ -296,7 +294,6 @@ class ArCore(
 
                 filament.scene.removeEntity(depthRenderable)
                 filament.scene.addEntity(flatRenderable)
-                Log.e("FOOBAR", "a")
             }
 
         // update camera projection

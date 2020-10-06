@@ -1,16 +1,21 @@
 package com.example.app.renderer
 
+import android.content.Context
+import android.content.res.AssetManager
+import android.graphics.BitmapFactory
+import com.example.app.*
 import com.example.app.filament.Filament
-import com.example.app.V3
-import com.example.app.div
-import com.google.android.filament.EntityInstance
-import com.google.android.filament.EntityManager
-import com.google.android.filament.LightManager
+import com.google.android.filament.*
 import com.google.ar.core.Frame
 import com.google.ar.core.LightEstimate
+import java.nio.ByteBuffer
+import kotlin.math.log2
 import kotlin.math.max
 
-class LightRenderer(private val filament: Filament) {
+class LightRenderer(context: Context, private val filament: Filament) {
+    private val reflections: Texture = loadReflections(context.assets, filament.engine)
+    private var irradiance: FloatArray = FloatArray(27)
+
     @EntityInstance
     private var directionalLightInstance: Int = EntityManager
         .get()
@@ -33,23 +38,25 @@ class LightRenderer(private val filament: Filament) {
             return
         }
 
-        // Crashes Filament 1.9.*
-//        filament.scene.indirectLight =
-//            IndirectLight
-//                .Builder()
-//                .irradiance(
-//                    3,
-//                    frame.lightEstimate.environmentalHdrAmbientSphericalHarmonics
-//                        .let { getEnvironmentalHdrSphericalHarmonics(it) }
-//                )
-//                .build(filament.engine)
+        val irradianceUpdate = frame.lightEstimate.environmentalHdrAmbientSphericalHarmonics
+            .let { getEnvironmentalHdrSphericalHarmonics(it) }
+
+        if (irradiance.asSequence().zip(irradianceUpdate.asSequence()).any { (x, y) -> x != y }) {
+            irradiance = irradianceUpdate
+
+            filament.scene.indirectLight = IndirectLight
+                .Builder()
+                .reflections(reflections)
+                .irradiance(3, irradiance)
+                .build(filament.engine)
+        }
 
         with(frame.lightEstimate.environmentalHdrMainLightDirection) {
             filament.engine.lightManager.setDirection(
                 directionalLightInstance,
                 -get(0),
                 -get(1),
-                -get(2)
+                -get(2),
             )
         }
 
@@ -64,8 +71,76 @@ class LightRenderer(private val filament: Filament) {
                 directionalLightInstance,
                 color.floatArray[0],
                 color.floatArray[1],
-                color.floatArray[2]
+                color.floatArray[2],
             )
         }
     }
+}
+
+private fun peekSize(assets: AssetManager, name: String): Pair<Int, Int> {
+    assets.open(name).use { input ->
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeStream(input, null, opts)
+        return opts.outWidth to opts.outHeight
+    }
+}
+
+private const val reflectionsName = "reflections"
+
+private fun loadCubemap(
+    texture: Texture,
+    assets: AssetManager,
+    engine: Engine,
+    prefix: String = "",
+    level: Int = 0,
+): Boolean {
+    // This is important, the alpha channel does not encode opacity but some
+    // of the bits of an R11G11B10F image to represent HDR data. We must tell
+    // Android to not premultiply the RGB channels by the alpha channel
+    val opts = BitmapFactory.Options().apply { inPremultiplied = false }
+
+    // R11G11B10F is always 4 bytes per pixel
+    val faceSize = texture.getWidth(level) * texture.getHeight(level) * 4
+    val offsets = IntArray(6) { it * faceSize }
+    // Allocate enough memory for all the cubemap faces
+    val storage = ByteBuffer.allocateDirect(faceSize * 6)
+
+    arrayOf("px", "nx", "py", "ny", "pz", "nz").forEach { suffix ->
+        try {
+            assets.open("$reflectionsName/$prefix$suffix.rgb32f").use {
+                val bitmap = BitmapFactory.decodeStream(it, null, opts)
+                bitmap?.copyPixelsToBuffer(storage)
+            }
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    // Rewind the texture buffer
+    storage.flip()
+
+    val buffer = Texture.PixelBufferDescriptor(
+        storage,
+        Texture.Format.RGB, Texture.Type.UINT_10F_11F_11F_REV
+    )
+
+    texture.setImage(engine, level, buffer, offsets)
+    return true
+}
+
+private fun loadReflections(assets: AssetManager, engine: Engine): Texture {
+    val (w, h) = peekSize(assets, "$reflectionsName/m0_nx.rgb32f")
+    val texture = Texture.Builder()
+        .width(w)
+        .height(h)
+        .levels(log2(w.toFloat()).toInt() + 1)
+        .format(Texture.InternalFormat.R11F_G11F_B10F)
+        .sampler(Texture.Sampler.SAMPLER_CUBEMAP)
+        .build(engine)
+
+    for (i in 0 until texture.levels) {
+        if (!loadCubemap(texture, assets, engine, "m${i}_", i)) break
+    }
+
+    return texture
 }

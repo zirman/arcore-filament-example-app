@@ -201,7 +201,7 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             }
             .flatMap { arCore ->
                 Observable.create<ArContext> { observableEmitter ->
-                    val lightRenderer = LightRenderer(arCore.filament)
+                    val lightRenderer = LightRenderer(this, arCore.filament)
                     val planeRenderer = PlaneRenderer(this, arCore.filament)
                     val modelRenderer = ModelRenderer(this, arCore, arCore.filament)
 
