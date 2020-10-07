@@ -364,7 +364,7 @@ class ArCore(
     }
 
     private fun initDepthTextures(depthImage: Image) {
-        val tes = tessellation(depthImage.width, depthImage.height)
+        val tes = tessellation(1, 1)
 
         depthMaterialInstance = activity
             .readUncompressedAsset("materials/depth.filamat")

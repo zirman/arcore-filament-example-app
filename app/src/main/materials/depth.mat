@@ -2,6 +2,7 @@ material {
     name : depth,
     shadingModel : unlit,
     blending : opaque,
+    vertexDomain : device,
     parameters : [
         {
             type : samplerExternal,
@@ -25,38 +26,16 @@ fragment {
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
         material.baseColor.rgb = inverseTonemapSRGB(texture(materialParams_cameraTexture, getUV0()).rgb);
-        material.baseColor.a = 1.f;
+        vec2 packed_depth = texture(materialParams_depthTexture, getUV0()).xy;
+        float depth_mm = dot(packed_depth, vec2(255.f, 256.f * 255.f));
+        vec4 view = mulMat4x4Float3(getClipFromViewMatrix(), vec3(0.f, 0.f, -depth_mm / 1000.f));
+        float ndc_depth = view.z / view.w;
+        gl_FragDepth = 1.f - ((ndc_depth + 1.f) / 2.f);
     }
 }
 
 vertex {
     void materialVertex(inout MaterialVertexInputs material) {
         material.uv0 = mulMat4x4Float3(materialParams.uvTransform, vec3(material.uv0.x, material.uv0.y, 0.f)).xy;
-        vec2 packed_depth = texture(materialParams_depthTexture, material.uv0).xy;
-        float depth_mm = dot(packed_depth, vec2(255.f, 256.f * 255.f));
-        vec4 view = getPosition();
-        view.z = -depth_mm / 1000.f;
-
-        // primary method
-        // For some reason some projection matrices are not symmetrical. To make sure the edge of
-        // the camera texture aligns with edge of the viewport on all sides, we use different scales
-        // for positive and negative.
-        vec4 scale_neg = mulMat4x4Float3(getViewFromClipMatrix(), vec3(-1.f, -1.f, 0.f));
-        vec4 scale_pos = mulMat4x4Float3(getViewFromClipMatrix(), vec3(1.f, 1.f, 0.f));
-        float scale_prop_x = (view.x / 2.f) + 0.5f;
-        float scale_prop_y = (view.y / 2.f) + 0.5f;
-
-        vec4 clip = mulMat4x4Float3(getClipFromViewMatrix(), view.xyz);
-        view.x *= clip.w * ((scale_neg.x * (scale_prop_x - 1.f)) + (scale_pos.x * scale_prop_x));
-        view.y *= clip.w * ((scale_neg.y * (scale_prop_y - 1.f)) + (scale_pos.y * scale_prop_y));
-        material.worldPosition = mulMat4x4Float3(getWorldFromViewMatrix(), view.xyz);
-
-        // alternate method
-        //vec4 scale = mulMat4x4Float3(getViewFromClipMatrix(), vec3(1.f, 1.f, 0.f));
-        //vec4 world = mulMat4x4Float3(getWorldFromModelMatrix(), view.xyz);
-        //vec4 clip = mulMat4x4Float3(getClipFromWorldMatrix(), world.xyz);
-        //view.x *= clip.w * scale.x;
-        //view.y *= clip.w * scale.y;
-        //material.worldPosition = mulMat4x4Float3(getWorldFromModelMatrix(), view.xyz);
     }
 }

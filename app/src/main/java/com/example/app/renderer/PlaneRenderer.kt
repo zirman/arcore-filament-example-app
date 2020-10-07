@@ -217,7 +217,6 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             .castShadows(false)
             .receiveShadows(true)
             .culling(true)
-            .priority(0)
             .boundingBox(
                 Box(
                     (xMin + xMax) / 2f,
