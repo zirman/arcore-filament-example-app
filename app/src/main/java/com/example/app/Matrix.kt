@@ -16,7 +16,7 @@ import java.nio.ShortBuffer
 import java.nio.channels.Channels
 import kotlin.math.*
 
-const val floatSize: Int = java.lang.Float.BYTES
+inline val Float.Companion.size get() = java.lang.Float.BYTES
 
 inline val Float.Companion.degreesInTau: Float get() = 360f
 inline val Float.Companion.tau: Float get() = PI.toFloat() * 2f
@@ -155,7 +155,7 @@ fun mulV3(r: FloatArray, ri: Int, v: FloatArray, vi: Int, s: Float) {
 
 const val dimenV4A: Int = 4
 inline val V4A.dimen: Int get() = dimenV4A
-fun V4A.count(): Int = floatArray.size / dimen
+inline val V4A.count: Int get() = floatArray.size / dimen
 
 fun V4A.getX(i: Int): Float = floatArray[(i * dimen) + 0]
 fun V4A.getY(i: Int): Float = floatArray[(i * dimen) + 1]
@@ -228,7 +228,7 @@ fun V3.div(d: Float): V3 =
     )
 
 fun FloatArray.toFloatBuffer(): FloatBuffer = ByteBuffer
-    .allocateDirect(size * floatSize)
+    .allocateDirect(size * Float.size)
     .order(ByteOrder.nativeOrder())
     .asFloatBuffer()
     .also { floatBuffer ->
@@ -307,7 +307,7 @@ fun FloatBuffer.polygonToUV(): V2A {
 }
 
 // uses world space to determine UV coordinates for better stability
-fun V4A.horizontalToUV(): V2A = v2aCreate(count(), { i -> getX(i) * 10f }, { i -> getZ(i) * 5f })
+fun V4A.horizontalToUV(): V2A = v2aCreate(count, { i -> getX(i) * 10f }, { i -> getZ(i) * 5f })
 
 fun V3.sub(v: V3): V3 =
     v3(

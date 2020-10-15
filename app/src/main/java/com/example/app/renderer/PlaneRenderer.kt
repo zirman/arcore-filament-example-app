@@ -38,8 +38,10 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             materialInstance.setParameter(
                 "texture",
                 loadTexture(filament.engine, context.resources, R.drawable.sceneform_plane, TextureType.COLOR),
-                TextureSampler().also { it.anisotropy = 8.0f }
+                TextureSampler().also { it.anisotropy = 8.0f },
             )
+
+            materialInstance.setParameter("alpha", 1f)
         }
 
     private val shadowMaterial: Material = context
@@ -52,12 +54,12 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
         }
 
     private val planeVertexFloatBuffer: FloatBuffer = ByteBuffer
-        .allocateDirect(planeVertexBufferSize * dimenV4A * floatSize)
+        .allocateDirect(planeVertexBufferSize * dimenV4A * Float.size)
         .order(ByteOrder.nativeOrder())
         .asFloatBuffer()
 
     private val planeUvFloatBuffer: FloatBuffer = ByteBuffer
-        .allocateDirect(planeVertexBufferSize * dimenV2A * floatSize)
+        .allocateDirect(planeVertexBufferSize * dimenV2A * Float.size)
         .order(ByteOrder.nativeOrder())
         .asFloatBuffer()
 
@@ -73,14 +75,14 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             0,
             VertexBuffer.AttributeType.FLOAT4,
             0,
-            0
+            0,
         )
         .attribute(
             VertexBuffer.VertexAttribute.UV0,
             1,
             VertexBuffer.AttributeType.FLOAT2,
             0,
-            0
+            0,
         )
         .build(filament.engine)
 
@@ -137,14 +139,14 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             // triangle fan of indices over convex polygon
             val planeTriangleIndices =
                 triangleIndexArrayCreate(
-                    planeVertices.count() - 2,
+                    planeVertices.count - 2,
                     { vertexBufferOffset.toShort() },
                     { k -> (vertexBufferOffset + k + 1).toShort() },
-                    { k -> (vertexBufferOffset + k + 2).toShort() }
+                    { k -> (vertexBufferOffset + k + 2).toShort() },
                 )
 
             // check for for buffer overflow
-            if (vertexBufferOffset + planeVertices.count() > planeVertexBufferSize ||
+            if (vertexBufferOffset + planeVertices.count > planeVertexBufferSize ||
                 indexBufferOffset + planeTriangleIndices.shortArray.count() > planeIndexBufferSize
             ) {
                 break
@@ -169,12 +171,12 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 } else {
                     // uv coordinates from world space
                     planeVertices.horizontalToUV()
-                }.floatArray
+                }.floatArray,
             )
 
             planeIndexShortBuffer.put(planeTriangleIndices.shortArray)
 
-            vertexBufferOffset += planeVertices.count()
+            vertexBufferOffset += planeVertices.count
             indexBufferOffset += planeTriangleIndices.shortArray.count()
         }
 
@@ -187,7 +189,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             0,
             planeVertexFloatBuffer,
             0,
-            count
+            count,
         )
 
         count = planeUvFloatBuffer.capacity() - planeUvFloatBuffer.remaining()
@@ -198,7 +200,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             1,
             planeUvFloatBuffer,
             0,
-            count
+            count,
         )
 
         count = planeIndexShortBuffer.capacity() - planeIndexShortBuffer.remaining()
@@ -208,7 +210,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
             filament.engine,
             planeIndexShortBuffer,
             0,
-            count
+            count,
         )
 
         // update renderable index buffer count
@@ -224,7 +226,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                     (zMin + zMax) / 2f,
                     (xMax - xMin) / 2f,
                     (yMax - yMin) / 2f,
-                    (zMax - zMin) / 2f
+                    (zMax - zMin) / 2f,
                 )
             )
             .geometry( // texture is applied to all triangles
@@ -233,7 +235,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 planeVertexBuffer,
                 planeIndexBuffer,
                 0,
-                indexBufferOffset
+                indexBufferOffset,
             )
             .material(0, textureMaterialInstance)
             .geometry( // shadows are applied to upward facing triangles
@@ -242,7 +244,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 planeVertexBuffer,
                 planeIndexBuffer,
                 0,
-                indexWithoutShadow ?: indexBufferOffset
+                indexWithoutShadow ?: indexBufferOffset,
             )
             .material(1, shadowMaterial.defaultInstance)
             .build(filament.engine, planeRenderable)
