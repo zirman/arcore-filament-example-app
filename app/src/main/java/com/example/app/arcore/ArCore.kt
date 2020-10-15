@@ -3,7 +3,6 @@ package com.example.app.arcore
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.media.Image
 import android.os.Build
@@ -26,14 +25,10 @@ import kotlin.math.roundToInt
 class ModelBuffers(val clipPosition: V2A, val uvs: V2A, val triangleIndices: ShortArray)
 
 @SuppressLint("MissingPermission")
-class ArCore(
-    private val activity: Activity,
-    val filament: Filament,
-    private val view: View
-) {
+class ArCore(private val activity: Activity, val filament: Filament, private val view: View) {
     companion object {
-        const val near = 0.1f
-        const val far = 30f
+        const val near: Float = 0.1f
+        const val far: Float = 30f
         private const val positionBufferIndex: Int = 0
         private const val uvBufferIndex: Int = 1
     }
@@ -78,13 +73,10 @@ class ArCore(
 
     lateinit var frame: Frame
 
-    private lateinit var cameraDevice: CameraDevice
-
     private lateinit var depthTexture: Texture
 
     fun destroy() {
         session.close()
-        cameraDevice.close()
     }
 
     var displayRotationDegrees: Int = 0
@@ -310,7 +302,7 @@ class ArCore(
     }
 
     private fun initFlat() {
-        val tes = tessellation(1, 1)
+        val tes = tessellation()
 
         RenderableManager
             .Builder(1)
@@ -364,7 +356,7 @@ class ArCore(
     }
 
     private fun initDepthTextures(depthImage: Image) {
-        val tes = tessellation(1, 1)
+        val tes = tessellation()
 
         depthMaterialInstance = activity
             .readUncompressedAsset("materials/depth.filamat")
@@ -466,7 +458,10 @@ class ArCore(
             .build(filament.engine, EntityManager.get().create().also { depthRenderable = it })
     }
 
-    private fun tessellation(tesWidth: Int, tesHeight: Int): ModelBuffers {
+    private fun tessellation(): ModelBuffers {
+        val tesWidth: Int = 1
+        val tesHeight: Int = 1
+
         val clipPosition: V2A = (((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
             .let { FloatArray(it) }
             .let { V2A(it) }

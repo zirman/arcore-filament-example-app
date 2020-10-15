@@ -96,7 +96,7 @@ dependencies {
 
     api 'androidx.legacy:legacy-support-v4:1.0.0'
 
-    api 'androidx.constraintlayout:constraintlayout:2.0.1'
+    api 'androidx.constraintlayout:constraintlayout:2.0.2'
     api 'androidx.recyclerview:recyclerview:1.1.0'
     api 'androidx.coordinatorlayout:coordinatorlayout:1.1.0'
     api 'androidx.drawerlayout:drawerlayout:1.1.1'
@@ -142,14 +142,14 @@ dependencies {
 
     api 'com.google.ar:core:1.20.0'
 
-    api 'com.google.android.filament:filament-android:1.9.3'
-    api 'com.google.android.filament:filament-utils-android:1.9.3'
-    api 'com.google.android.filament:gltfio-android:1.9.3'
+    api 'com.google.android.filament:filament-android:1.9.4'
+    api 'com.google.android.filament:filament-utils-android:1.9.4'
+    api 'com.google.android.filament:gltfio-android:1.9.4'
 
     // Third Party Dependencies
 
     api 'io.arrow-kt:arrow-fx:0.11.0'
 
-    api 'io.reactivex.rxjava2:rxjava:2.2.19'
+    api 'io.reactivex.rxjava2:rxjava:2.2.20'
     api 'io.reactivex.rxjava2:rxandroid:2.1.1'
 }
