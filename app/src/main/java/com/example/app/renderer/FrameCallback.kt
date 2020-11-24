@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 class FrameCallback(
     private val arCore: ArCore,
-    private val doFrame: (frame: Frame) -> Unit
+    private val doFrame: (frame: Frame) -> Unit,
 ) : Choreographer.FrameCallback {
     companion object {
         private const val maxFramesPerSecond: Long = 60

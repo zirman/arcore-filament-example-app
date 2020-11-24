@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.app
 
 import android.app.Activity
@@ -6,7 +8,6 @@ import android.opengl.Matrix
 import android.os.Build
 import android.view.Surface
 import com.example.app.arcore.ArCore
-import com.example.app.filament.Filament
 import com.google.ar.core.Frame
 import com.google.ar.core.Pose
 import java.nio.ByteBuffer

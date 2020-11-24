@@ -5,7 +5,7 @@ data class Version(
     val minor: Int,
     val patch: Int,
     val preRelease: PreRelease?,
-    val build: Build?
+    val build: Build?,
 ) {
     fun print(): String = "$major.$minor.$patch${preRelease?.print() ?: ""}${build?.print() ?: ""}"
 }

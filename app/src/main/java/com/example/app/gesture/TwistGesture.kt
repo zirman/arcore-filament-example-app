@@ -9,7 +9,7 @@ import kotlin.math.sign
 class TwistGesture(
     gesturePointersUtility: GesturePointersUtility,
     motionEvent: MotionEvent,
-    private val pointerId2: Int
+    private val pointerId2: Int,
 ) : BaseGesture<TwistGesture>(gesturePointersUtility) {
     interface OnGestureEventListener : BaseGesture.OnGestureEventListener<TwistGesture>
 

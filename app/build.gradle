@@ -44,7 +44,6 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
     api 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.1'
-    api 'org.jetbrains.kotlinx:kotlinx-coroutines-rx2:1.4.1'
     api 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.1'
     api 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.4.1'
 
@@ -81,14 +80,12 @@ dependencies {
     api 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.3.0-beta01'
 
     api 'androidx.work:work-runtime-ktx:2.4.0'
-    api 'androidx.work:work-rxjava2:2.4.0'
     api 'androidx.work:work-gcm:2.4.0'
 
     api 'androidx.emoji:emoji:1.1.0'
     api 'androidx.emoji:emoji-appcompat:1.1.0'
 
     api 'androidx.room:room-runtime:2.2.5'
-    api 'androidx.room:room-rxjava2:2.2.5'
     api 'androidx.room:room-ktx:2.2.5'
     kapt 'androidx.room:room-compiler:2.2.5'
 
@@ -132,7 +129,6 @@ dependencies {
 
     api 'androidx.paging:paging-common-ktx:2.1.2'
     api 'androidx.paging:paging-runtime-ktx:2.1.2'
-    api 'androidx.paging:paging-rxjava2-ktx:2.1.2'
 
     api 'androidx.preference:preference-ktx:1.1.1'
 
@@ -142,14 +138,11 @@ dependencies {
 
     api 'com.google.ar:core:1.21.0'
 
-    api 'com.google.android.filament:filament-android:1.9.8'
-    api 'com.google.android.filament:filament-utils-android:1.9.8'
-    api 'com.google.android.filament:gltfio-android:1.9.8'
+    api 'com.google.android.filament:filament-android:1.9.9'
+    api 'com.google.android.filament:filament-utils-android:1.9.9'
+    api 'com.google.android.filament:gltfio-android:1.9.9'
 
     // Third Party Dependencies
 
     api 'io.arrow-kt:arrow-fx:0.11.0'
-
-    api 'io.reactivex.rxjava2:rxjava:2.2.20'
-    api 'io.reactivex.rxjava2:rxandroid:2.1.1'
 }

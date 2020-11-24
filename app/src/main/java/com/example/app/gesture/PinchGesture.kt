@@ -8,7 +8,7 @@ import kotlin.math.cos
 class PinchGesture(
     gesturePointersUtility: GesturePointersUtility,
     motionEvent: MotionEvent,
-    private val pointerId2: Int
+    private val pointerId2: Int,
 ) : BaseGesture<PinchGesture>(gesturePointersUtility) {
     interface OnGestureEventListener : BaseGesture.OnGestureEventListener<PinchGesture>
 

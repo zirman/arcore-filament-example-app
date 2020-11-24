@@ -5,10 +5,11 @@ import android.app.ActivityManager
 import android.content.Context
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import io.reactivex.Single
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
-class UserCanceled : Exception()
-class OpenGLVersionNotSupported : Exception()
+object UserCanceled : Exception()
+object OpenGLVersionNotSupported : Exception()
 
 const val cameraPermissionRequestCode = 1001
 val minOpenGlVersion = Version(3, 0, 0, null, null)
@@ -23,20 +24,18 @@ fun Context.checkIfOpenGlVersionSupported(minOpenGlVersion: Version): Boolean =
             .let { parserVersion.parse(it) }
     ) <= 0
 
-fun showOpenGlNotSupportedDialog(activity: Activity): Single<Unit> = Single
-    .create { singleEmitter ->
-        val alertDialog = AlertDialog
-            .Builder(activity)
-            .setTitle(R.string.opengl_required_title)
-            .setMessage(
-                activity.getString(
-                    R.string.opengl_required_message,
-                    minOpenGlVersion.print()
-                )
-            )
-            .setPositiveButton(android.R.string.ok) { _, _ -> singleEmitter.onSuccess(Unit) }
-            .setCancelable(false)
-            .show()
+suspend fun showOpenGlNotSupportedDialog(
+    activity: Activity,
+) = suspendCancellableCoroutine<Unit> { continuation ->
+    val alertDialog = AlertDialog
+        .Builder(activity)
+        .setTitle(R.string.opengl_required_title)
+        .setMessage(
+            activity.getString(R.string.opengl_required_message, minOpenGlVersion.print()),
+        )
+        .setPositiveButton(android.R.string.ok) { _, _ -> continuation.resume(Unit) }
+        .setCancelable(false)
+        .show()
 
-        singleEmitter.setCancellable { alertDialog.dismiss() }
-    }
+    continuation.invokeOnCancellation { alertDialog.dismiss() }
+}

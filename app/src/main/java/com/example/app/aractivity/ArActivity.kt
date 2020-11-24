@@ -4,84 +4,96 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.*
-import android.widget.FrameLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.example.app.*
 import com.example.app.arcore.ArCore
-import com.example.app.arcore.checkArCore
+import com.example.app.databinding.ExampleActivityBinding
 import com.example.app.filament.Filament
 import com.example.app.gesture.*
 import com.example.app.toRadians
 import com.example.app.x
 import com.example.app.y
 import com.example.app.renderer.*
+import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
-import io.reactivex.Observable
-import io.reactivex.Single
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.subjects.BehaviorSubject
-import io.reactivex.subjects.PublishSubject
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.*
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResultEvents,
-    ConfigurationChangedEvents, ResumeEvents, ResumeBehavior {
+class ArActivity : AppCompatActivity() {
+    private val resumeBehavior: MutableStateFlow<Unit?> =
+        MutableStateFlow(null)
 
-    override val onSystemUiFlagHideNavigationDisposable: CompositeDisposable =
-        CompositeDisposable()
+    private val requestPermissionResultEvents: MutableSharedFlow<PermissionResultEvent> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    override val resumeEvents: PublishSubject<Unit> =
-        PublishSubject.create()
+    private val configurationChangedEvents: MutableSharedFlow<Configuration> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    override val resumeBehavior: BehaviorSubject<Boolean> =
-        BehaviorSubject.create()
+    private val dragEvents: MutableSharedFlow<Pair<ViewRect, TouchEvent>> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    override val requestPermissionResultEvents: PublishSubject<PermissionResultEvent> =
-        PublishSubject.create()
+    private val scaleEvents: MutableSharedFlow<Float> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    override val configurationChangedEvents: PublishSubject<Configuration> =
-        PublishSubject.create()
+    private val rotateEvents: MutableSharedFlow<Float> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    private val arContextSignal: BehaviorSubject<ArContext> =
-        BehaviorSubject.create()
+    private val arTrackingEvents: MutableSharedFlow<Unit> =
+        MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    private val dragEvents: PublishSubject<Pair<ViewRect, TouchEvent>> =
-        PublishSubject.create()
+    private val arCoreBehavior: MutableStateFlow<Pair<ArCore, FrameCallback>?> =
+        MutableStateFlow(null)
 
-    private val scaleEvents: PublishSubject<Float> =
-        PublishSubject.create()
-
-    private val rotateEvents: PublishSubject<Float> =
-        PublishSubject.create()
-
-    private val arTrackingEvents: PublishSubject<Unit> =
-        PublishSubject.create()
-
-    private val onCreateDisposable: CompositeDisposable =
-        CompositeDisposable()
-
-    private val onStartDisposable: CompositeDisposable =
-        CompositeDisposable()
-
-    private lateinit var surfaceView: SurfaceView
-    private lateinit var handMotionContainer: FrameLayout
     private lateinit var transformationSystem: TransformationSystem
+
+    private val createScope = CoroutineScope(Dispatchers.Main)
+    private lateinit var startScope: CoroutineScope
+    private lateinit var binding: ExampleActivityBinding
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = ExampleActivityBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        onCreateAutoHideSystemUi()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
 
-        setContentView(R.layout.example_activity)
-        surfaceView = findViewById(R.id.surface_view)!!
-        handMotionContainer = findViewById(R.id.hand_motion_container)!!
+            findViewById<View>(android.R.id.content)!!.windowInsetsController!!
+                .also { windowInsetsController ->
+                    windowInsetsController.systemBarsBehavior =
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+                    windowInsetsController.hide(WindowInsets.Type.systemBars())
+                }
+        } else @Suppress("DEPRECATION") run {
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility
+                .or(View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+                .or(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)      // layout as if status bar is hidden
+                .or(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION) // layout as if navigation bar is hidden
+                .or(View.SYSTEM_UI_FLAG_FULLSCREEN)             // hide status bar
+                .or(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)        // hide navigation bar
+                .or(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)       // hide stat/nav bar after interaction timeout
+
+            // interacting with toolbar popup menu clears flags so we set them again here
+            window.decorView.setOnSystemUiVisibilityChangeListener {
+                window.decorView.systemUiVisibility = window.decorView.systemUiVisibility
+                    .or(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)
+                    .or(View.SYSTEM_UI_FLAG_FULLSCREEN)
+            }
+        }
 
         transformationSystem = TransformationSystem(resources.displayMetrics)
 
@@ -100,12 +112,12 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                             override fun onUpdated(gesture: PinchGesture) {
                                 update(gesture)
                             }
-                        }
+                        },
                     )
                 }
 
                 fun update(gesture: PinchGesture) {
-                    scaleEvents.onNext(1f + gesture.gapDeltaInches())
+                    scaleEvents.tryEmit(1f + gesture.gapDeltaInches())
                 }
             }
         )
@@ -125,12 +137,12 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
                             override fun onUpdated(gesture: TwistGesture) {
                                 update(gesture)
                             }
-                        }
+                        },
                     )
                 }
 
                 fun update(gesture: TwistGesture) {
-                    rotateEvents.onNext(-gesture.deltaRotationDegrees.toRadians)
+                    rotateEvents.tryEmit(-gesture.deltaRotationDegrees.toRadians)
                 }
             }
         )
@@ -140,285 +152,304 @@ class ArActivity : AppCompatActivity(), AutoHideSystemUi, RequestPermissionResul
             object : DragGestureRecognizer.OnGestureStartedListener {
                 override fun onGestureStarted(gesture: DragGesture) {
                     Pair(
-                        surfaceView.toViewRect(),
-                        TouchEvent.Move(gesture.position.x, gesture.position.y)
+                        binding.surfaceView.toViewRect(),
+                        TouchEvent.Move(gesture.position.x, gesture.position.y),
                     )
-                        .let { dragEvents.onNext(it) }
+                        .let { dragEvents.tryEmit(it) }
 
                     gesture.setGestureEventListener(
                         object : DragGesture.OnGestureEventListener {
                             override fun onFinished(gesture: DragGesture) {
                                 Pair(
-                                    surfaceView.toViewRect(),
-                                    TouchEvent.Stop(gesture.position.x, gesture.position.y)
+                                    binding.surfaceView.toViewRect(),
+                                    TouchEvent.Stop(gesture.position.x, gesture.position.y),
                                 )
-                                    .let { dragEvents.onNext(it) }
+                                    .let { dragEvents.tryEmit(it) }
                             }
 
                             override fun onUpdated(gesture: DragGesture) {
                                 Pair(
-                                    surfaceView.toViewRect(),
-                                    TouchEvent.Move(gesture.position.x, gesture.position.y)
+                                    binding.surfaceView.toViewRect(),
+                                    TouchEvent.Move(gesture.position.x, gesture.position.y),
                                 )
-                                    .let { dragEvents.onNext(it) }
+                                    .let { dragEvents.tryEmit(it) }
                             }
-                        }
+                        },
                     )
                 }
             }
         )
 
         // tap and gesture events
-        surfaceView.setOnTouchListener { _, motionEvent ->
+        binding.surfaceView.setOnTouchListener { _, motionEvent ->
             if (motionEvent.action == MotionEvent.ACTION_UP &&
                 (motionEvent.eventTime - motionEvent.downTime) <
                 resources.getInteger(R.integer.tap_event_milliseconds)
             ) {
-                Pair(surfaceView.toViewRect(), TouchEvent.Stop(motionEvent.x, motionEvent.y))
-                    .let { dragEvents.onNext(it) }
+                Pair(
+                    binding.surfaceView.toViewRect(),
+                    TouchEvent.Stop(motionEvent.x, motionEvent.y)
+                )
+                    .let { dragEvents.tryEmit(it) }
             }
 
             transformationSystem.onTouch(motionEvent)
             true
         }
 
-        resumeBehavior
-            .filter { it }
-            .firstOrError()
-            .flatMap { checkPermissions() }
-            .flatMap { checkArCore() }
-            .flatMapObservable {
-                Observable.create<ArCore> { observableEmitter ->
-                    val filament = Filament(this, surfaceView)
-                    val arCore = ArCore(this, filament, surfaceView)
-                    observableEmitter.onNext(arCore)
-
-                    observableEmitter.setCancellable {
-                        arCore.destroy()
-                        filament.destroy()
-                    }
+        createScope.launch {
+            try {
+                createUx()
+            } catch (error: Throwable) {
+                if (error !is UserCanceled) {
+                    error.printStackTrace()
                 }
+            } finally {
+                finish()
             }
-            .flatMap { arCore ->
-                Observable.create<ArContext> { observableEmitter ->
-                    val lightRenderer = LightRenderer(this, arCore.filament)
-                    val planeRenderer = PlaneRenderer(this, arCore.filament)
-                    val modelRenderer = ModelRenderer(this, arCore, arCore.filament)
-
-                    val frameCallback = FrameCallback(
-                        arCore,
-                        doFrame = { frame ->
-                            if (frame.getUpdatedTrackables(Plane::class.java)
-                                    .any { it.trackingState == TrackingState.TRACKING }
-                            ) {
-                                arTrackingEvents.onNext(Unit)
-                            }
-
-                            lightRenderer.doFrame(frame)
-                            planeRenderer.doFrame(frame)
-                            modelRenderer.doFrame(frame)
-                        }
-                    )
-
-                    ArContext(
-                        arCore,
-                        lightRenderer,
-                        planeRenderer,
-                        modelRenderer,
-                        frameCallback
-                    )
-                        .let { observableEmitter.onNext(it) }
-
-                    observableEmitter.setCancellable {
-                        modelRenderer.destroy()
-                    }
-                }
-                    .subscribeOn(AndroidSchedulers.mainThread())
-            }
-            .subscribe({ arContextSignal.onNext(it) }, { errorHandler(it) })
-            .let { onCreateDisposable.add(it) }
-
-        arContextSignal
-            .firstOrError()
-            .flatMapObservable { arContext -> configurationChangedEvents.map { arContext.arCore } }
-            .subscribe(
-                { arCore -> arCore.configurationChange() },
-                { errorHandler(it) }
-            )
-            .let { onCreateDisposable.add(it) }
-
-        arContextSignal
-            .firstOrError()
-            .flatMapObservable { arContext ->
-                Observable.merge(
-                    dragEvents.map { (viewRect, touchEvent) ->
-                        ScreenPosition(
-                            x = touchEvent.x / viewRect.width,
-                            y = touchEvent.y / viewRect.height
-                        )
-                            .let { ModelRenderer.ModelEvent.Move(it) }
-                            .let { Pair(arContext.modelRenderer, it) }
-                    },
-                    scaleEvents.map { scale ->
-                        ModelRenderer.ModelEvent.Update(0f, scale)
-                            .let { Pair(arContext.modelRenderer, it) }
-                    },
-                    rotateEvents.map { rotate ->
-                        ModelRenderer.ModelEvent.Update(rotate, 1f)
-                            .let { Pair(arContext.modelRenderer, it) }
-                    }
-                )
-            }
-            .subscribe(
-                { (modelRenderer, modelEvent) -> modelRenderer.modelEvents.onNext(modelEvent) },
-                { errorHandler(it) }
-            )
-            .let { onCreateDisposable.add(it) }
+        }
     }
 
     override fun onDestroy() {
+        createScope.cancel()
         super.onDestroy()
-        onCreateDisposable.clear()
     }
 
     override fun onStart() {
         super.onStart()
+        startScope = CoroutineScope(Dispatchers.Main)
 
-        arContextSignal
-            .flatMap { arContext ->
-                Observable
-                    .create<Nothing> { observableEmitter ->
-                        arContext.arCore.session.resume()
-                        arContext.frameCallback.start()
+        startScope.launch {
+            try {
+                startUx()
+            } catch (error: Throwable) {
+                if (error !is UserCanceled) {
+                    error.printStackTrace()
+                }
 
-                        observableEmitter.setCancellable {
-                            arContext.frameCallback.stop()
-                            arContext.arCore.session.pause()
-                        }
-                    }
+                finish()
             }
-            .subscribe({}, { errorHandler(it) })
-            .let { onStartDisposable.add(it) }
-
-        // visibility of handMotionContainer
-        // show hand motion after resuming ar if nothing is tracked for 2 seconds
-        arContextSignal
-            .flatMap {
-                Observable
-                    .amb(listOf(
-                        Observable
-                            .concat(
-                                Observable
-                                    .just(true)
-                                    .delay(
-                                        resources
-                                            .getInteger(R.integer.show_hand_motion_timeout_seconds)
-                                            .toLong(),
-                                        TimeUnit.SECONDS
-                                    ),
-                                arTrackingEvents
-                                    .take(1)
-                                    .map { false }
-                            ),
-                        arTrackingEvents
-                            .take(1)
-                            .map { false }
-                    ))
-            }
-            .observeOn(AndroidSchedulers.mainThread())
-            .doOnDispose { handMotionContainer.isVisible = false }
-            .subscribe({ handMotionContainer.isVisible = it }, { errorHandler(it) })
-            .let { onStartDisposable.add(it) }
+        }
     }
 
     override fun onStop() {
+        startScope.cancel()
         super.onStop()
-        onSystemUiFlagHideNavigationDisposable.clear()
-        onStartDisposable.clear()
     }
 
     override fun onResume() {
         super.onResume()
-        onResumeAutoHideSystemUi()
-        resumeEvents.onNext(Unit)
-        resumeBehavior.onNext(true)
+        resumeBehavior.tryEmit(Unit)
     }
 
     override fun onPause() {
         super.onPause()
-        resumeBehavior.onNext(false)
+        resumeBehavior.tryEmit(null)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        configurationChangedEvents.onNext(newConfig)
+        configurationChangedEvents.tryEmit(newConfig)
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        requestPermissionResultEvents.onNext(PermissionResultEvent(requestCode, grantResults))
+        requestPermissionResultEvents.tryEmit(PermissionResultEvent(requestCode, grantResults))
     }
 
-    private fun checkPermissions(): Single<Unit> = Single
-        .just(Unit)
-        .flatMap {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
+
+    private suspend fun createUx() {
+        // wait for activity to resume
+        resumeBehavior.filterNotNull().first()
+
+        if (checkIfOpenGlVersionSupported(minOpenGlVersion).not()) {
+            showOpenGlNotSupportedDialog(this@ArActivity)
+            // finish()
+            throw OpenGLVersionNotSupported
+        }
+
+        resumeBehavior.filterNotNull().first()
+
+        // if arcore is not installed, request to install
+        if (ArCoreApk
+                .getInstance()
+                .requestInstall(
+                    this@ArActivity,
+                    true,
+                    ArCoreApk.InstallBehavior.REQUIRED,
+                    ArCoreApk.UserMessageType.USER_ALREADY_INFORMED,
+                ) == ArCoreApk.InstallStatus.INSTALL_REQUESTED
+        ) {
+            // make sure activity is paused before waiting for resume
+            resumeBehavior.dropWhile { it != null }.filterNotNull().first()
+
+            // check if install succeeded
+            if (ArCoreApk
+                    .getInstance()
+                    .requestInstall(
+                        this@ArActivity,
+                        false,
+                        ArCoreApk.InstallBehavior.REQUIRED,
+                        ArCoreApk.UserMessageType.USER_ALREADY_INFORMED,
+                    ) != ArCoreApk.InstallStatus.INSTALLED
             ) {
-                Single.just(Unit)
-            } else {
-                showCameraPermissionDialog(this)
-                    .flatMap { getPermission() }
+                throw UserCanceled
             }
         }
 
-    private fun getPermission(): Single<Unit> = Single
-        .just(Unit)
-        .flatMap {
+        // if permission is not granted, request permission
+        if (ContextCompat.checkSelfPermission(
+                this@ArActivity,
+                Manifest.permission.CAMERA,
+            ) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            showCameraPermissionDialog(this@ArActivity)
+
             requestPermissions(
                 arrayOf(Manifest.permission.CAMERA),
-                cameraPermissionRequestCode
+                cameraPermissionRequestCode,
             )
 
-            requestPermissionResultEvents
-                .filter { it.requestCode == cameraPermissionRequestCode }
-                .firstOrError()
-        }
-        .flatMap { permissionResult ->
-            if (permissionResult.grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                Single.just(Unit)
-            } else {
-                Single.error(UserCanceled())
+            // check if permission was granted
+            if (requestPermissionResultEvents
+                    .filter { it.requestCode == cameraPermissionRequestCode }
+                    .first()
+                    .grantResults.any { it != PackageManager.PERMISSION_GRANTED }
+            ) {
+                throw UserCanceled
             }
         }
 
-    private fun showCameraPermissionDialog(activity: AppCompatActivity): Single<Unit> = Single
-        .create { singleEmitter ->
-            if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+        // TODO: eliminate nesting of finally blocks
+        val filament = Filament(this@ArActivity, binding.surfaceView)
+
+        try {
+            val arCore = ArCore(this@ArActivity, filament, binding.surfaceView)
+
+            try {
+                val lightRenderer = LightRenderer(this@ArActivity, arCore.filament)
+                val planeRenderer = PlaneRenderer(this@ArActivity, arCore.filament)
+                val modelRenderer = ModelRenderer(this@ArActivity, arCore, arCore.filament)
+
+                try {
+                    val frameCallback =
+                        FrameCallback(
+                            arCore,
+                            doFrame = { frame ->
+                                if (frame.getUpdatedTrackables(Plane::class.java)
+                                        .any { it.trackingState == TrackingState.TRACKING }
+                                ) {
+                                    arTrackingEvents.tryEmit(Unit)
+                                }
+
+                                lightRenderer.doFrame(frame)
+                                planeRenderer.doFrame(frame)
+                                modelRenderer.doFrame(frame)
+                            },
+                        )
+
+                    arCoreBehavior.emit(Pair(arCore, frameCallback))
+
+                    with(CoroutineScope(coroutineContext)) {
+                        launch {
+                            configurationChangedEvents.collect { arCore.configurationChange() }
+                        }
+
+                        launch {
+                            dragEvents
+                                .map { (viewRect, touchEvent) ->
+                                    ScreenPosition(
+                                        x = touchEvent.x / viewRect.width,
+                                        y = touchEvent.y / viewRect.height,
+                                    )
+                                        .let { ModelRenderer.ModelEvent.Move(it) }
+                                }
+                                .collect { modelRenderer.modelEvents.tryEmit(it) }
+                        }
+
+                        launch {
+                            scaleEvents
+                                .map { ModelRenderer.ModelEvent.Update(0f, it) }
+                                .collect { modelRenderer.modelEvents.tryEmit(it) }
+                        }
+
+                        launch {
+                            rotateEvents
+                                .map { ModelRenderer.ModelEvent.Update(it, 1f) }
+                                .collect { modelRenderer.modelEvents.tryEmit(it) }
+                        }
+                    }
+
+                    awaitCancellation()
+                } finally {
+                    modelRenderer.destroy()
+                }
+            } finally {
+                arCore.destroy()
+            }
+        } finally {
+            filament.destroy()
+        }
+    }
+
+    private suspend fun startUx() {
+        val (arCore, frameCallback) = arCoreBehavior.filterNotNull().first()
+
+        try {
+            arCore.session.resume()
+            frameCallback.start()
+
+            coroutineScope {
+                val job = launch(coroutineContext) {
+                    TimeUnit.SECONDS
+                        .toMillis(
+                            resources
+                                .getInteger(R.integer.show_hand_motion_timeout_seconds)
+                                .toLong(),
+                        )
+                        .let { delay(it) }
+
+                    binding.handMotionContainer.isVisible = true
+                }
+
+                launch(coroutineContext) {
+                    arTrackingEvents.first()
+                    job.cancel()
+                    binding.handMotionContainer.isVisible = false
+                }
+            }
+
+            awaitCancellation()
+        } finally {
+            binding.handMotionContainer.isVisible = false
+            frameCallback.stop()
+            arCore.session.pause()
+        }
+    }
+
+    private suspend fun showCameraPermissionDialog(activity: AppCompatActivity) {
+        if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            suspendCancellableCoroutine<Unit> { continuation ->
                 val alertDialog = AlertDialog
                     .Builder(activity)
                     .setTitle(R.string.camera_permission_title)
                     .setMessage(R.string.camera_permission_message)
-                    .setPositiveButton(android.R.string.ok) { _, _ -> singleEmitter.onSuccess(Unit) }
+                    .setPositiveButton(android.R.string.ok) { _, _ ->
+                        continuation.resume(Unit)
+                    }
                     .setNegativeButton(android.R.string.cancel) { _, _ ->
-                        singleEmitter.onError(UserCanceled())
+                        continuation.resumeWithException(UserCanceled)
                     }
                     .setCancelable(false)
                     .show()
 
-                singleEmitter.setCancellable { alertDialog.dismiss() }
-            } else {
-                singleEmitter.onSuccess(Unit)
+                continuation.invokeOnCancellation { alertDialog.dismiss() }
             }
         }
-
-    private fun errorHandler(error: Throwable) {
-        finish()
-        if (error is UserCanceled) return
-        error.printStackTrace()
     }
 }

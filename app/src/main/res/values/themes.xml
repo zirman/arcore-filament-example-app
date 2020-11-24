@@ -39,14 +39,19 @@
 
         <item name="textAppearanceOverline">@style/TextAppearance.ExampleApp.Overline</item>
 
-        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.ExampleApp.SmallComponent</item>
-        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.ExampleApp.MediumComponent
+        <item name="shapeAppearanceSmallComponent">
+            @style/ShapeAppearance.ExampleApp.SmallComponent
         </item>
-        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.ExampleApp.LargeComponent</item>
+        <item name="shapeAppearanceMediumComponent">
+            @style/ShapeAppearance.ExampleApp.MediumComponent
+        </item>
+        <item name="shapeAppearanceLargeComponent">
+            @style/ShapeAppearance.ExampleApp.LargeComponent
+        </item>
     </style>
 
     <style name="Theme.ExampleApp.Fullscreen">
-        <item name="android:immersive">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>

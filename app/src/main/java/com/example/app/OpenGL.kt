@@ -17,7 +17,7 @@ fun createEglContext(): Either<Exception, EGLContext> {
         0,
         1,
         intArrayOf(0),
-        0
+        0,
     )
 
     val context: EGLContext =
@@ -26,7 +26,7 @@ fun createEglContext(): Either<Exception, EGLContext> {
             configs[0],
             EGL14.EGL_NO_CONTEXT,
             intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
-            0
+            0,
         )
 
     val surface: EGLSurface =
@@ -34,7 +34,7 @@ fun createEglContext(): Either<Exception, EGLContext> {
             display,
             configs[0],
             intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE),
-            0
+            0,
         )
 
     return if (EGL14.eglMakeCurrent(display, surface, surface, context)) {
