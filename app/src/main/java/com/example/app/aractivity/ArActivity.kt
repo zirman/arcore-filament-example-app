@@ -10,6 +10,7 @@ import android.view.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
 import com.example.app.*
 import com.example.app.arcore.ArCore
@@ -67,10 +68,9 @@ class ArActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ExampleActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-
             findViewById<View>(android.R.id.content)!!.windowInsetsController!!
                 .also { windowInsetsController ->
                     windowInsetsController.systemBarsBehavior =
@@ -80,19 +80,9 @@ class ArActivity : AppCompatActivity() {
                 }
         } else @Suppress("DEPRECATION") run {
             window.decorView.systemUiVisibility = window.decorView.systemUiVisibility
-                .or(View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
-                .or(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)      // layout as if status bar is hidden
-                .or(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION) // layout as if navigation bar is hidden
-                .or(View.SYSTEM_UI_FLAG_FULLSCREEN)             // hide status bar
-                .or(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)        // hide navigation bar
-                .or(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)       // hide stat/nav bar after interaction timeout
-
-            // interacting with toolbar popup menu clears flags so we set them again here
-            window.decorView.setOnSystemUiVisibilityChangeListener {
-                window.decorView.systemUiVisibility = window.decorView.systemUiVisibility
-                    .or(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)
-                    .or(View.SYSTEM_UI_FLAG_FULLSCREEN)
-            }
+                .or(View.SYSTEM_UI_FLAG_FULLSCREEN)       // hide status bar
+                .or(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)  // hide navigation bar
+                .or(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY) // hide stat/nav bar after interaction timeout
         }
 
         transformationSystem = TransformationSystem(resources.displayMetrics)
@@ -177,7 +167,7 @@ class ArActivity : AppCompatActivity() {
                         },
                     )
                 }
-            }
+            },
         )
 
         // tap and gesture events
@@ -188,7 +178,7 @@ class ArActivity : AppCompatActivity() {
             ) {
                 Pair(
                     binding.surfaceView.toViewRect(),
-                    TouchEvent.Stop(motionEvent.x, motionEvent.y)
+                    TouchEvent.Stop(motionEvent.x, motionEvent.y),
                 )
                     .let { dragEvents.tryEmit(it) }
             }

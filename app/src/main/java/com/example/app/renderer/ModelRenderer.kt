@@ -59,7 +59,7 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
                                 arCore.frame
                                     .hitTest(
                                         filament.surfaceView.width.toFloat() * modelEvent.screenPosition.x,
-                                        filament.surfaceView.height.toFloat() * modelEvent.screenPosition.y
+                                        filament.surfaceView.height.toFloat() * modelEvent.screenPosition.y,
                                     )
                                     .maxByOrNull { it.trackable is Point }
                             }
@@ -100,7 +100,7 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
                             (frame.timestamp /
                                     TimeUnit.SECONDS.toNanos(1).toDouble())
                                 .toFloat() %
-                                    animator.getAnimationDuration(0)
+                                    animator.getAnimationDuration(0),
                         )
 
                         animator.updateBoneMatrices()
