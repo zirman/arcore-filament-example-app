@@ -2,6 +2,8 @@ package com.example.app
 
 import android.opengl.*
 import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 
 fun createEglContext(): Either<Exception, EGLContext> {
     val eglOpenGlEs3Bit = 0x40
@@ -38,9 +40,9 @@ fun createEglContext(): Either<Exception, EGLContext> {
         )
 
     return if (EGL14.eglMakeCurrent(display, surface, surface, context)) {
-        Either.right(context)
+        context.right()
     } else {
-        Either.left(Exception("Error creating EGL Context"))
+        Exception("Error creating EGL Context").left()
     }
 }
 
@@ -52,7 +54,7 @@ fun createExternalTextureId(): Int = IntArray(1)
 fun destroyEglContext(context: EGLContext): Either<Exception, Unit> =
     if (EGL14.eglDestroyContext(EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY), context)
     ) {
-        Either.right(Unit)
+        Unit.right()
     } else {
-        Either.left(Exception("Error destroying EGL context"))
+        Exception("Error destroying EGL context").left()
     }
