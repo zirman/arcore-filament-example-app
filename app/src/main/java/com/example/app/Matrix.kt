@@ -35,20 +35,15 @@ inline val Float.clampToTau: Float
                 this
         }
 
-@JvmInline
-value class V2A(val floatArray: FloatArray)
+data class V2A(val floatArray: FloatArray)
 
-@JvmInline
-value class V3(val floatArray: FloatArray)
+data class V3(val floatArray: FloatArray)
 
-@JvmInline
-value class V3A(val floatArray: FloatArray)
+data class V3A(val floatArray: FloatArray)
 
-@JvmInline
-value class V4A(val floatArray: FloatArray)
+data class V4A(val floatArray: FloatArray)
 
-@JvmInline
-value class M4(val floatArray: FloatArray)
+data class M4(val floatArray: FloatArray)
 
 @JvmInline
 value class TriangleIndexArray(val shortArray: ShortArray)

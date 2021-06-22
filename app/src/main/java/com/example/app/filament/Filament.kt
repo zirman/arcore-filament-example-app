@@ -21,7 +21,7 @@ class Filament(context: Context, val surfaceView: SurfaceView) {
     val scene: Scene = engine.createScene()
 
     val camera: Camera = engine
-        .createCamera()
+        .createCamera(engine.entityManager.create())
         .also { camera ->
             // Set the exposure on the camera, this exposure follows the sunny f/16 rule
             // Since we've defined a light that has the same intensity as the sun, it
