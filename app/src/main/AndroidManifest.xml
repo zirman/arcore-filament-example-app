@@ -32,6 +32,7 @@
         <activity
             android:name=".aractivity.ArActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="true"
             android:launchMode="singleTask"
             android:resizeableActivity="false"
             android:screenOrientation="fullSensor"
