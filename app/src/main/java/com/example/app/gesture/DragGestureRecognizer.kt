@@ -4,8 +4,11 @@ import android.view.MotionEvent
 
 class DragGestureRecognizer(gesturePointersUtility: GesturePointersUtility) :
     BaseGestureRecognizer<DragGesture>(gesturePointersUtility) {
+
     interface OnGestureStartedListener : BaseGestureRecognizer.OnGestureStartedListener<DragGesture>
 
+    // DragGesture is created when the user touch's down,
+    // but doesn't actually start until the touch has moved beyond a threshold.
     override fun tryCreateGestures(motionEvent: MotionEvent) {
         val action = motionEvent.actionMasked
         val actionId = motionEvent.getPointerId(motionEvent.actionIndex)

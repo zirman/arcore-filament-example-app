@@ -313,6 +313,9 @@ fun FloatBuffer.polygonToUV(): V2A {
 // uses world space to determine UV coordinates for better stability
 fun V4A.horizontalToUV(): V2A = v2aCreate(count, { i -> getX(i) * 10f }, { i -> getZ(i) * 5f })
 
+/**
+ * Subtract vectors
+ * */
 fun V3.sub(v: V3): V3 =
     v3(
         x - v.x,
@@ -320,6 +323,9 @@ fun V3.sub(v: V3): V3 =
         z - v.z
     )
 
+/**
+ * Check vectors for equivalence
+ * */
 fun V3.eq(v: V3): Boolean = x == v.x &&
         y == v.y &&
         z == v.z

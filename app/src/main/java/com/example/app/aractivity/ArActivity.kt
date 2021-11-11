@@ -66,10 +66,15 @@ class ArActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // view binding
         binding = ExampleActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        // Sets whether the decor view should fit root-level content views
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        // Full Screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             findViewById<View>(android.R.id.content)!!.windowInsetsController!!
                 .also { windowInsetsController ->

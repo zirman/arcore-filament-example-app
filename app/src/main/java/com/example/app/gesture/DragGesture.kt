@@ -5,6 +5,7 @@ import com.example.app.*
 
 class DragGesture(gesturePointersUtility: GesturePointersUtility, motionEvent: MotionEvent) :
     BaseGesture<DragGesture>(gesturePointersUtility) {
+
     interface OnGestureEventListener : BaseGesture.OnGestureEventListener<DragGesture>
 
     companion object {
@@ -19,15 +20,26 @@ class DragGesture(gesturePointersUtility: GesturePointersUtility, motionEvent: M
     var position: V3 = startPosition
     private var delta: V3 = v3Origin
 
+    /**
+     * Instruction to verify if to start a gesture
+     *
+     * checks include
+     * * if touch event not is used in another gesture
+     * * if touch action hasn't finished
+     * * if touch event has moved
+     * * if gesture distance greater than min gesture distance (SLOP_INCHES)
+     */
     override fun canStart(motionEvent: MotionEvent): Boolean {
         val actionId = motionEvent.getPointerId(motionEvent.actionIndex)
         val action = motionEvent.actionMasked
 
+        // check if touch event used in another gesture
         if (gesturePointersUtility.isPointerIdRetained(pointerId)) {
             cancel()
             return false
         }
 
+        // if action has finished or canceled
         if (actionId == pointerId
             && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP)
         ) {
@@ -38,10 +50,12 @@ class DragGesture(gesturePointersUtility: GesturePointersUtility, motionEvent: M
             return false
         }
 
+        // if action hasn't moved
         if (action != MotionEvent.ACTION_MOVE) {
             return false
         }
 
+        // if any touch pointer id other than initial pointer id is not retained
         if (motionEvent.pointerCount > 1) {
             for (i in 0 until motionEvent.pointerCount) {
                 val id = motionEvent.getPointerId(i)
@@ -58,6 +72,7 @@ class DragGesture(gesturePointersUtility: GesturePointersUtility, motionEvent: M
         val diff: Float = newPosition.sub(startPosition).magnitude()
         val slopPixels = gesturePointersUtility.inchesToPixels(SLOP_INCHES)
 
+        // finally if the gesture distance greater than slop length
         return diff >= slopPixels
     }
 
