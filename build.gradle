@@ -1,21 +1,20 @@
 buildscript {
     ext {
-        kotlin_version = '1.5.10'
+        kotlin_version = '1.5.31'
     }
     repositories {
         google()
         mavenCentral()
         maven { url 'https://plugins.gradle.org/m2/' }
         maven { url 'https://dl.bintray.com/arrow-kt/arrow-kt/' }
-        jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.2.1'
+        classpath 'com.android.tools.build:gradle:7.0.3'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jetbrains.kotlin:kotlin-android-extensions:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.3.8'
+        classpath 'com.google.gms:google-services:4.3.10'
         classpath 'com.google.firebase:perf-plugin:1.4.0'
-        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.7.0'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.8.0'
         classpath 'androidx.navigation:navigation-safe-args-gradle-plugin:2.3.5'
     }
 }
@@ -24,7 +23,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        jcenter()
     }
 }
 

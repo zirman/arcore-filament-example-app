@@ -10,8 +10,8 @@ import com.google.android.filament.*
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.gltfio.AssetLoader
-import com.google.android.filament.gltfio.MaterialProvider
 import com.google.android.filament.gltfio.ResourceLoader
+import com.google.android.filament.gltfio.UbershaderLoader
 
 /**
  * Create, Setup and Manage Filament Engine
@@ -67,7 +67,7 @@ class Filament(context: Context, val surfaceView: SurfaceView) {
     // AssetLoader does not fetch external buffer data or create textures on its own.
     // Clients can use the provided ResourceLoader class for this, which obtains the URI list from the asset.
     val assetLoader =
-        AssetLoader(engine, MaterialProvider(engine), EntityManager.get())
+        AssetLoader(engine, UbershaderLoader(engine), EntityManager.get())
 
     val resourceLoader =
         ResourceLoader(engine)
