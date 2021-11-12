@@ -72,7 +72,7 @@ class ArActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Sets whether the decor view should fit root-level content views
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Full Screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
