@@ -1,5 +1,8 @@
 package com.example.app
 
+/**
+ * Permission ResultEvent helper data class
+ */
 data class PermissionResultEvent(val requestCode: Int, val grantResults: IntArray) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

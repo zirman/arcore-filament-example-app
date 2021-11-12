@@ -5,6 +5,9 @@ import com.example.app.arcore.ArCore
 import com.google.ar.core.Frame
 import java.util.concurrent.TimeUnit
 
+/**
+ * Receive a callback everytime a new display frame is rendered
+ */
 class FrameCallback(
     private val arCore: ArCore,
     private val doFrame: (frame: Frame) -> Unit,

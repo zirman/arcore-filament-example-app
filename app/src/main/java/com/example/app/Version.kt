@@ -1,5 +1,14 @@
 package com.example.app
 
+/**
+ * Version Details
+ *
+ * @param major Major Release Version
+ * @param minor Minor release version
+ * @param patch patch update version
+ * @param preRelease pre-release version
+ * @param build build version
+ */
 data class Version(
     val major: Int,
     val minor: Int,
@@ -10,7 +19,20 @@ data class Version(
     fun print(): String = "$major.$minor.$patch${preRelease?.print() ?: ""}${build?.print() ?: ""}"
 }
 
+/**
+ * Compare [Version]
+ *
+ * used to compare OpenGL Versions
+ */
 val versionComparator: Comparator<Version> = object : Comparator<Version> {
+    /**
+     * Compare Versions
+     *
+     * @param version1 minVersion
+     * @param version2 currentVersion
+     *
+     * @return Int : <= 0 when compatible
+     */
     override fun compare(version1: Version?, version2: Version?): Int {
         return when {
             version1 == null || version2 == null ->
@@ -50,6 +72,9 @@ val parserPreRelease: Parser<PreRelease> = parserChar('-')
             .map { PreRelease(it) }
     }
 
+/**
+ * Parse GLES version from device info
+ */
 val parserVersion: Parser<Version> =
     parserNonNegInt.flatMap { major ->
         parserChar('.').flatMap {

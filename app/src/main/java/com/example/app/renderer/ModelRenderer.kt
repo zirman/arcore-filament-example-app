@@ -13,21 +13,31 @@ import kotlinx.coroutines.flow.*
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
+/**
+ * Render and Transform models
+ *
+ * @param context Application context
+ * @param arCore ArCore instance
+ * @param filament Filament instance
+ */
 class ModelRenderer(context: Context, private val arCore: ArCore, private val filament: Filament) {
     sealed class ModelEvent {
         data class Move(val screenPosition: ScreenPosition) : ModelEvent()
         data class Update(val rotate: Float, val scale: Float) : ModelEvent()
     }
 
+    // model transformation updates
     val modelEvents: MutableSharedFlow<ModelEvent> =
         MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
+    // Flow to update with frames
     private val doFrameEvents: MutableSharedFlow<Frame> =
         MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     private val canDrawBehavior: MutableStateFlow<Unit?> =
         MutableStateFlow(null)
 
+    // Model transformations
     private var translation: V3 = v3Origin
     private var rotate: Float = 0f
     private var scale: Float = 1f
@@ -47,8 +57,7 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
                             input.read(bytes)
                             filament.assetLoader.createAssetFromBinary(ByteBuffer.wrap(bytes))!!
                         }
-                }
-                    .also { filament.resourceLoader.loadResources(it) }
+                }.also { filament.resourceLoader.loadResources(it) }
 
             launch {
                 // translation

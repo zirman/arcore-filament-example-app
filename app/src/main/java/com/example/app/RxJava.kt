@@ -14,6 +14,10 @@ object OpenGLVersionNotSupported : Exception()
 const val cameraPermissionRequestCode = 1001
 val minOpenGlVersion = Version(3, 0, 0, null, null)
 
+/**
+ * Check if the platform OpenGL version is supported
+ * at least 3.0.0
+ */
 fun Context.checkIfOpenGlVersionSupported(minOpenGlVersion: Version): Boolean =
     versionComparator.compare(
         minOpenGlVersion,
@@ -24,6 +28,9 @@ fun Context.checkIfOpenGlVersionSupported(minOpenGlVersion: Version): Boolean =
             .let { parserVersion.parse(it) }
     ) <= 0
 
+/**
+ * Show Alert Dialog on OpenGL not suppored
+ */
 suspend fun showOpenGlNotSupportedDialog(
     activity: Activity,
 ) = suspendCancellableCoroutine<Unit> { continuation ->

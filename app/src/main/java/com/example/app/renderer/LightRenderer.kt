@@ -12,6 +12,12 @@ import java.nio.ByteBuffer
 import kotlin.math.log2
 import kotlin.math.max
 
+/**
+ * Update Lighting of the Scene
+ *
+ * @param context Activity Context
+ * @param filament Filament Instance
+ */
 class LightRenderer(context: Context, private val filament: Filament) {
     private val reflections: Texture = loadReflections(context.assets, filament.engine)
     private var irradiance: FloatArray = FloatArray(27)
@@ -32,15 +38,23 @@ class LightRenderer(context: Context, private val filament: Filament) {
         }
 
 
+    /**
+     * Update lighting for the frame
+     */
     fun doFrame(frame: Frame) {
-        // update lighting estimate
+        // update lighting estimate for frame
+
+        // Return if the light estimate is not valid this frame
         if (frame.lightEstimate.state != LightEstimate.State.VALID) {
             return
         }
 
+        // Get ambient lighting as spherical harmonics coefficients.
         val irradianceUpdate = frame.lightEstimate.environmentalHdrAmbientSphericalHarmonics
             .let { getEnvironmentalHdrSphericalHarmonics(it) }
 
+        // if irradianceUpdate not equal to previous irradiance values: update
+        // ie: if scene indirect lighting has changed
         if (irradiance.asSequence().zip(irradianceUpdate.asSequence()).any { (x, y) -> x != y }) {
             irradiance = irradianceUpdate
 
@@ -51,6 +65,7 @@ class LightRenderer(context: Context, private val filament: Filament) {
                 .build(filament.engine)
         }
 
+        // update main directional light's direction
         with(frame.lightEstimate.environmentalHdrMainLightDirection) {
             filament.engine.lightManager.setDirection(
                 directionalLightInstance,
@@ -60,6 +75,7 @@ class LightRenderer(context: Context, private val filament: Filament) {
             )
         }
 
+        // update the main directional light's intensity
         with(frame.lightEstimate.environmentalHdrMainLightIntensity) {
             // Scale hdr rgb values to fit in range [0, 1).
             // There may be a better way to do this conversion.
@@ -77,6 +93,14 @@ class LightRenderer(context: Context, private val filament: Filament) {
     }
 }
 
+/**
+ * Read the width and height of asset
+ *
+ * @param assets Asset Manager
+ * @param name Path to Asset
+ *
+ * @return width, height
+ */
 private fun peekSize(assets: AssetManager, name: String): Pair<Int, Int> {
     assets.open(name).use { input ->
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -87,6 +111,17 @@ private fun peekSize(assets: AssetManager, name: String): Pair<Int, Int> {
 
 private const val reflectionsName = "reflections"
 
+/**
+ * Load texture from assets to direct byte buffer and convert as Filament texture
+ *
+ * @param texture Filament Texture manager object
+ * @param assets Asset Manager
+ * @param engine Filament Engine
+ * @param prefix Texture Name prefix
+ * @param level Texture level
+ *
+ * @return Bool: true if success, false on exception
+ */
 private fun loadCubemap(
     texture: Texture,
     assets: AssetManager,
@@ -96,7 +131,7 @@ private fun loadCubemap(
 ): Boolean {
     // This is important, the alpha channel does not encode opacity but some
     // of the bits of an R11G11B10F image to represent HDR data. We must tell
-    // Android to not premultiply the RGB channels by the alpha channel
+    // Android to not pre-multiply the RGB channels by the alpha channel
     val opts = BitmapFactory.Options().apply { inPremultiplied = false }
 
     // R11G11B10F is always 4 bytes per pixel
@@ -128,6 +163,14 @@ private fun loadCubemap(
     return true
 }
 
+/**
+ *  Load Reflections texture
+ *
+ *  @param assets Asset manager
+ *  @param engine Filament Engine
+ *
+ *  @return Reflections Texture
+ */
 private fun loadReflections(assets: AssetManager, engine: Engine): Texture {
     val (w, h) = peekSize(assets, "$reflectionsName/m0_nx.rgb32f")
     val texture = Texture.Builder()
