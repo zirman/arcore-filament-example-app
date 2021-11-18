@@ -3,6 +3,7 @@ material {
     shadingModel : unlit,
     blending : opaque,
     vertexDomain : device,
+    depthWrite : false,
     parameters : [
         {
             type : samplerExternal,

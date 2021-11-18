@@ -52,9 +52,9 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     focusMode = Config.FocusMode.AUTO
 
                     // reading depth information is broken with latest filament
-                    depthMode = Config.DepthMode.DISABLED
-                        //if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Config.DepthMode.AUTOMATIC
-                        //else Config.DepthMode.DISABLED
+                    depthMode =
+                        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Config.DepthMode.AUTOMATIC
+                        else Config.DepthMode.DISABLED
 
                     lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
                     // getting ar frame doesn't block and gives last frame
@@ -227,8 +227,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
         }
 
         // reading depth information is broken with latest filament
-        (//if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Unit else null
-                null)
+        (if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) Unit else null)
             ?.let {
                 if (hasDepthImage.not()) {
                     try {

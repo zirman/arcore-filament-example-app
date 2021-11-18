@@ -120,27 +120,27 @@ dependencies {
 
     implementation 'androidx.collection:collection-ktx:1.1.0'
 
-    api 'androidx.fragment:fragment-ktx:1.4.0-rc01'
+    api 'androidx.fragment:fragment-ktx:1.4.0'
 
     api 'androidx.navigation:navigation-runtime-ktx:2.3.5'
     api 'androidx.navigation:navigation-fragment-ktx:2.3.5'
     api 'androidx.navigation:navigation-ui-ktx:2.3.5'
     api 'androidx.navigation:navigation-dynamic-features-fragment:2.3.5'
 
-    api 'androidx.paging:paging-common-ktx:3.0.1'
-    api 'androidx.paging:paging-runtime-ktx:3.0.1'
+    api 'androidx.paging:paging-common-ktx:3.1.0'
+    api 'androidx.paging:paging-runtime-ktx:3.1.0'
 
     implementation 'androidx.preference:preference-ktx:1.1.1'
 
     implementation 'com.google.android.play:core-ktx:1.8.1'
 
-    api 'com.google.android.material:material:1.5.0-alpha05'
+    api 'com.google.android.material:material:1.5.0-beta01'
 
     api 'com.google.ar:core:1.28.0'
 
-    api 'com.google.android.filament:filament-android:1.13.0'
-    api 'com.google.android.filament:filament-utils-android:1.13.0'
-    api 'com.google.android.filament:gltfio-android:1.13.0'
+    api 'com.google.android.filament:filament-android:1.14.0'
+    api 'com.google.android.filament:filament-utils-android:1.14.0'
+    api 'com.google.android.filament:gltfio-android:1.14.0'
 
     // Third Party Dependencies
 
