@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package com.example.app
 
 import android.app.Activity
@@ -15,7 +13,10 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
 import java.nio.channels.Channels
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.sqrt
 
 inline val Float.Companion.size get() = java.lang.Float.BYTES
 
@@ -29,21 +30,88 @@ inline val Float.clampToTau: Float
         when {
             this < 0f ->
                 this + ceil(-this / Float.tau) * Float.tau
+
             this >= Float.tau ->
                 this - floor(this / Float.tau) * Float.tau
+
             else ->
                 this
         }
 
-data class V2A(val floatArray: FloatArray)
+data class V2A(val floatArray: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
 
-data class V3(val floatArray: FloatArray)
+        other as V2A
 
-data class V3A(val floatArray: FloatArray)
+        return floatArray.contentEquals(other.floatArray)
+    }
 
-data class V4A(val floatArray: FloatArray)
+    override fun hashCode(): Int {
+        return floatArray.contentHashCode()
+    }
+}
 
-data class M4(val floatArray: FloatArray)
+data class V3(val floatArray: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as V3
+
+        return floatArray.contentEquals(other.floatArray)
+    }
+
+    override fun hashCode(): Int {
+        return floatArray.contentHashCode()
+    }
+}
+
+data class V3A(val floatArray: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as V3A
+
+        return floatArray.contentEquals(other.floatArray)
+    }
+
+    override fun hashCode(): Int {
+        return floatArray.contentHashCode()
+    }
+}
+
+data class V4A(val floatArray: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as V4A
+
+        return floatArray.contentEquals(other.floatArray)
+    }
+
+    override fun hashCode(): Int {
+        return floatArray.contentHashCode()
+    }
+}
+
+data class M4(val floatArray: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as M4
+
+        return floatArray.contentEquals(other.floatArray)
+    }
+
+    override fun hashCode(): Int {
+        return floatArray.contentHashCode()
+    }
+}
 
 @JvmInline
 value class TriangleIndexArray(val shortArray: ShortArray)
@@ -82,14 +150,17 @@ fun M4.translate(x: Float, y: Float, z: Float): M4 = FloatArray(16)
     .also { Matrix.translateM(it, 0, floatArray, 0, x, y, z) }
     .let { M4(it) }
 
+@Suppress("unused")
 fun M4.multiply(m: M4): M4 = FloatArray(16)
     .also { Matrix.multiplyMM(it, 0, floatArray, 0, m.floatArray, 0) }
     .let { M4(it) }
 
+@Suppress("unused")
 fun M4.invert(): M4 = FloatArray(16)
     .also { Matrix.invertM(it, 0, floatArray, 0) }
     .let { M4(it) }
 
+@Suppress("unused")
 fun m4Rotate(angle: Float, x: Float, y: Float, z: Float): M4 = FloatArray(16)
     .also { Matrix.setRotateM(it, 0, angle, x, y, z) }
     .let { M4(it) }
@@ -102,7 +173,7 @@ fun FloatArray.toDoubleArray(): DoubleArray = DoubleArray(size)
     }
 
 fun Frame.projectionMatrix(): M4 = FloatArray(16)
-    .apply { camera.getProjectionMatrix(this, 0, ArCore.near, ArCore.far) }
+    .apply { camera.getProjectionMatrix(this, 0, ArCore.NEAR, ArCore.FAR) }
     .let { M4(it) }
 
 @Suppress("DEPRECATION")
@@ -110,7 +181,7 @@ fun Activity.displayRotation(): Int =
     (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display
     else windowManager.defaultDisplay)!!.rotation
 
-@Suppress("DEPRECATION")
+@Suppress("unused")
 fun Activity.displayRotationDegrees(): Int =
     when (displayRotation()) {
         Surface.ROTATION_0 -> 0
@@ -133,6 +204,8 @@ inline fun v2aCreate(count: Int, x: (Int) -> Float, y: (Int) -> Float): V2A =
         }
 
 const val dimenV2A: Int = 2
+
+@Suppress("UnusedReceiverParameter")
 inline val V2A.dimen: Int get() = dimenV2A
 fun V2A.count(): Int = floatArray.size / dimen
 inline val V2A.indices: IntRange get() = IntRange(0, count() - 1)
@@ -143,6 +216,8 @@ fun V2A.set(i: Int, x: Float, y: Float) {
 }
 
 const val dimenV3A: Int = 3
+
+@Suppress("UnusedReceiverParameter")
 inline val V3A.dimen: Int get() = dimenV3A
 
 fun V3A.set(i: Int, x: Float, y: Float, z: Float) {
@@ -158,12 +233,18 @@ fun mulV3(r: FloatArray, ri: Int, v: FloatArray, vi: Int, s: Float) {
 }
 
 const val dimenV4A: Int = 4
+
+@Suppress("UnusedReceiverParameter")
 inline val V4A.dimen: Int get() = dimenV4A
 inline val V4A.count: Int get() = floatArray.size / dimen
 
 fun V4A.getX(i: Int): Float = floatArray[(i * dimen) + 0]
+
+@Suppress("unused")
 fun V4A.getY(i: Int): Float = floatArray[(i * dimen) + 1]
 fun V4A.getZ(i: Int): Float = floatArray[(i * dimen) + 2]
+
+@Suppress("unused")
 fun V4A.getW(i: Int): Float = floatArray[(i * dimen) + 3]
 
 fun V4A.set(i: Int, x: Float, y: Float, z: Float, w: Float) {
@@ -185,8 +266,7 @@ fun V3.neg(): V3 =
 
 val v3Origin: V3 = v3(0f, 0f, 0f)
 
-fun v3(x: Float, y: Float, z: Float): V3 = FloatArray(3)
-    .let { V3(it) }
+fun v3(x: Float, y: Float, z: Float): V3 = V3(FloatArray(3))
     .also {
         it.x = x
         it.y = y

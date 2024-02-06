@@ -1,7 +1,11 @@
 package com.example.app.gesture
 
 import android.view.MotionEvent
-import com.example.app.*
+import com.example.app.V3
+import com.example.app.eq
+import com.example.app.magnitude
+import com.example.app.sub
+import com.example.app.v3Origin
 
 class DragGesture(gesturePointersUtility: GesturePointersUtility, motionEvent: MotionEvent) :
     BaseGesture<DragGesture>(gesturePointersUtility) {

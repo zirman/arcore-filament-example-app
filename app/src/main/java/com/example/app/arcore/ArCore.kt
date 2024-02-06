@@ -2,6 +2,7 @@ package com.example.app.arcore
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.Image
@@ -13,13 +14,38 @@ import android.view.View
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.updateLayoutParams
-import com.example.app.*
+import com.example.app.M4
+import com.example.app.V2A
+import com.example.app.count
+import com.example.app.createExternalTextureId
+import com.example.app.dimenV2A
 import com.example.app.filament.Filament
-import com.google.android.filament.*
+import com.example.app.m4Identity
+import com.example.app.matrix
+import com.example.app.projectionMatrix
+import com.example.app.readUncompressedAsset
+import com.example.app.rotate
+import com.example.app.set
+import com.example.app.toDoubleArray
+import com.example.app.toFloatBuffer
+import com.example.app.toShortBuffer
+import com.example.app.translate
+import com.google.android.filament.Entity
+import com.google.android.filament.EntityManager
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
+import com.google.android.filament.MaterialInstance
+import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.Stream
+import com.google.android.filament.Texture
+import com.google.android.filament.TextureSampler
+import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
-import com.google.ar.core.*
+import com.google.ar.core.Config
+import com.google.ar.core.Frame
+import com.google.ar.core.Session
 import kotlin.math.roundToInt
 
 class ModelBuffers(val clipPosition: V2A, val uvs: V2A, val triangleIndices: ShortArray)
@@ -27,10 +53,10 @@ class ModelBuffers(val clipPosition: V2A, val uvs: V2A, val triangleIndices: Sho
 @SuppressLint("MissingPermission")
 class ArCore(private val activity: Activity, val filament: Filament, private val view: View) {
     companion object {
-        const val near: Float = 0.1f
-        const val far: Float = 30f
-        private const val positionBufferIndex: Int = 0
-        private const val uvBufferIndex: Int = 1
+        const val NEAR: Float = 0.1f
+        const val FAR: Float = 30f
+        private const val POSITION_BUFFER_INDEX: Int = 0
+        private const val UV_BUFFER_INDEX: Int = 1
     }
 
     private val cameraStreamTextureId: Int = createExternalTextureId()
@@ -80,7 +106,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
         session.close()
     }
 
-    var displayRotationDegrees: Int = 0
+    private var displayRotationDegrees: Int = 0
 
     fun configurationChange() {
         if (this::frame.isInitialized.not()) return
@@ -127,16 +153,19 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     cameraWidth = dimensions[0]
                     cameraHeight = dimensions[1]
                 }
+
                 else -> {
                     cameraWidth = dimensions[1]
                     cameraHeight = dimensions[0]
                 }
             }
+
             else -> when (displayRotation) {
                 Surface.ROTATION_0, Surface.ROTATION_180 -> {
                     cameraWidth = dimensions[1]
                     cameraHeight = dimensions[0]
                 }
+
                 else -> {
                     cameraWidth = dimensions[0]
                     cameraHeight = dimensions[1]
@@ -168,7 +197,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
         session.setDisplayGeometry(displayRotation, viewWidth, viewHeight)
     }
 
-    var hasDepthImage: Boolean = false
+    private var hasDepthImage: Boolean = false
 
     fun update(frame: Frame, filament: Filament) {
         val firstFrame = this::frame.isInitialized.not()
@@ -184,7 +213,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
 
             stream = Stream
                 .Builder()
-                .stream(cameraStreamTextureId.toLong())
+                .stream(SurfaceTexture(cameraStreamTextureId))
                 .width(width)
                 .height(height)
                 .build(filament.engine)
@@ -231,7 +260,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             ?.let {
                 if (hasDepthImage.not()) {
                     try {
-                        val depthImage = frame.acquireDepthImage() as ArImage
+                        val depthImage = frame.acquireDepthImage16Bits()
 
                         if (depthImage.planes[0].buffer[0] != 0.toByte()) {
                             hasDepthImage = true
@@ -293,8 +322,8 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
         // update camera projection
         filament.camera.setCustomProjection(
             frame.projectionMatrix().floatArray.toDoubleArray(),
-            near.toDouble(),
-            far.toDouble(),
+            NEAR.toDouble(),
+            FAR.toDouble(),
         )
 
         val cameraTransform = frame.camera.displayOrientedPose.matrix()
@@ -320,14 +349,14 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     .bufferCount(2)
                     .attribute(
                         VertexAttribute.POSITION,
-                        positionBufferIndex,
+                        POSITION_BUFFER_INDEX,
                         AttributeType.FLOAT2,
                         0,
                         0,
                     )
                     .attribute(
                         VertexAttribute.UV0,
-                        uvBufferIndex,
+                        UV_BUFFER_INDEX,
                         AttributeType.FLOAT2,
                         0,
                         0,
@@ -336,13 +365,13 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     .also { vertexBuffer ->
                         vertexBuffer.setBufferAt(
                             filament.engine,
-                            positionBufferIndex,
+                            POSITION_BUFFER_INDEX,
                             tes.clipPosition.floatArray.toFloatBuffer(),
                         )
 
                         vertexBuffer.setBufferAt(
                             filament.engine,
-                            uvBufferIndex,
+                            UV_BUFFER_INDEX,
                             tes.uvs.floatArray.toFloatBuffer(),
                         )
                     },
@@ -423,14 +452,14 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     .bufferCount(2)
                     .attribute(
                         VertexAttribute.POSITION,
-                        positionBufferIndex,
+                        POSITION_BUFFER_INDEX,
                         AttributeType.FLOAT2,
                         0,
                         0,
                     )
                     .attribute(
                         VertexAttribute.UV0,
-                        uvBufferIndex,
+                        UV_BUFFER_INDEX,
                         AttributeType.FLOAT2,
                         0,
                         0,
@@ -439,13 +468,13 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     .also { vertexBuffer ->
                         vertexBuffer.setBufferAt(
                             filament.engine,
-                            positionBufferIndex,
+                            POSITION_BUFFER_INDEX,
                             tes.clipPosition.floatArray.toFloatBuffer()
                         )
 
                         vertexBuffer.setBufferAt(
                             filament.engine,
-                            uvBufferIndex,
+                            UV_BUFFER_INDEX,
                             tes.uvs.floatArray.toFloatBuffer()
                         )
                     },
@@ -460,17 +489,16 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             .build(filament.engine, EntityManager.get().create().also { depthRenderable = it })
     }
 
+    @Suppress("KotlinConstantConditions")
     private fun tessellation(): ModelBuffers {
-        val tesWidth: Int = 1
-        val tesHeight: Int = 1
+        val tesWidth = 1
+        val tesHeight = 1
 
-        val clipPosition: V2A = (((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
-            .let { FloatArray(it) }
-            .let { V2A(it) }
+        val clipPosition =
+            V2A(FloatArray((((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)))
 
-        val uvs: V2A = (((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)
-            .let { FloatArray(it) }
-            .let { V2A(it) }
+        val uvs =
+            V2A(FloatArray((((tesWidth * tesHeight) + tesWidth + tesHeight + 1) * dimenV2A)))
 
         for (k in 0..tesHeight) {
             val v = k.toFloat() / tesHeight.toFloat()

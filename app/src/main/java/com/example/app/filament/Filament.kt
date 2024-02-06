@@ -6,12 +6,19 @@ import android.view.Surface
 import android.view.SurfaceView
 import com.example.app.createEglContext
 import com.example.app.destroyEglContext
-import com.google.android.filament.*
+import com.google.android.filament.Camera
+import com.google.android.filament.Engine
+import com.google.android.filament.EntityManager
+import com.google.android.filament.Renderer
+import com.google.android.filament.Scene
+import com.google.android.filament.SwapChain
+import com.google.android.filament.View
+import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.gltfio.AssetLoader
 import com.google.android.filament.gltfio.ResourceLoader
-import com.google.android.filament.gltfio.UbershaderLoader
+import com.google.android.filament.gltfio.UbershaderProvider
 
 class Filament(context: Context, val surfaceView: SurfaceView) {
     var timestamp: Long = 0L
@@ -37,7 +44,7 @@ class Filament(context: Context, val surfaceView: SurfaceView) {
         }
 
     val assetLoader =
-        AssetLoader(engine, UbershaderLoader(engine), EntityManager.get())
+        AssetLoader(engine, UbershaderProvider(engine), EntityManager.get())
 
     val resourceLoader =
         ResourceLoader(engine)

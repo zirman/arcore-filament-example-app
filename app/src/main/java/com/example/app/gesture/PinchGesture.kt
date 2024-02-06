@@ -1,7 +1,14 @@
 package com.example.app.gesture
 
 import android.view.MotionEvent
-import com.example.app.*
+import com.example.app.V3
+import com.example.app.dot
+import com.example.app.eq
+import com.example.app.magnitude
+import com.example.app.neg
+import com.example.app.normalize
+import com.example.app.sub
+import com.example.app.v3Origin
 import kotlin.math.abs
 import kotlin.math.cos
 
@@ -28,12 +35,10 @@ class PinchGesture(
     private var previousPosition1: V3 = startPosition1
     private var previousPosition2: V3 = startPosition2
 
-    var gap = 0f
-        private set
+    private var gap = 0f
+    private var gapDelta = 0f
 
-    var gapDelta = 0f
-        private set
-
+    @Suppress("unused")
     fun gapInches(): Float {
         return gesturePointersUtility.pixelsToInches(gap)
     }

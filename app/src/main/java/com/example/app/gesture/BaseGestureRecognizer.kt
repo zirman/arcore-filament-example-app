@@ -1,7 +1,6 @@
 package com.example.app.gesture
 
 import android.view.MotionEvent
-import java.util.*
 
 // A Gesture recognizer processes touch input to determine if a gesture should start and fires an
 // event when the gesture is started.
@@ -20,6 +19,7 @@ abstract class BaseGestureRecognizer<T : BaseGesture<T>>(val gesturePointersUtil
         }
     }
 
+    @Suppress("unused")
     fun removeOnGestureStartedListener(listener: OnGestureStartedListener<T>) {
         gestureStartedListeners.remove(listener)
     }

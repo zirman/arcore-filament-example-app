@@ -5,7 +5,6 @@ import android.util.TypedValue
 import android.view.MotionEvent
 import com.example.app.V3
 import com.example.app.v3
-import java.util.*
 
 // Retains/Releases pointer Ids so that each pointer can only be used in one gesture at a time.
 // Provides helper functions for converting touch coordinates between pixels and inches.

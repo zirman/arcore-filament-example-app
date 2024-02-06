@@ -1,12 +1,29 @@
 package com.example.app.renderer
 
 import android.content.Context
-import com.example.app.*
 import com.example.app.R
+import com.example.app.count
+import com.example.app.dimenV2A
+import com.example.app.dimenV4A
 import com.example.app.filament.Filament
-import com.google.android.filament.*
-import com.google.android.filament.textured.TextureType
-import com.google.android.filament.textured.loadTexture
+import com.example.app.horizontalToUV
+import com.example.app.matrix
+import com.example.app.polygonToUV
+import com.example.app.polygonToVertices
+import com.example.app.readUncompressedAsset
+import com.example.app.size
+import com.example.app.triangleIndexArrayCreate
+import com.google.android.filament.Box
+import com.google.android.filament.Entity
+import com.google.android.filament.EntityManager
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
+import com.google.android.filament.MaterialInstance
+import com.google.android.filament.RenderableManager
+import com.google.android.filament.TextureSampler
+import com.google.android.filament.VertexBuffer
+import com.google.android.filament.utils.TextureType
+import com.google.android.filament.utils.loadTexture
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
@@ -19,8 +36,8 @@ import kotlin.math.min
 
 class PlaneRenderer(context: Context, private val filament: Filament) {
     companion object {
-        private const val planeVertexBufferSize: Int = 1000
-        private const val planeIndexBufferSize: Int = (planeVertexBufferSize - 2) * 3
+        private const val PLANE_VERTEX_BUFFER_SIZE: Int = 1000
+        private const val PLANE_INDEX_BUFFER_SIZE: Int = (PLANE_VERTEX_BUFFER_SIZE - 2) * 3
     }
 
     private val textureMaterial: Material = context
@@ -41,7 +58,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 TextureSampler().also { it.anisotropy = 8.0f },
             )
 
-            materialInstance.setParameter("alpha", 1f)
+//            materialInstance.setParameter("alpha", 1f)
         }
 
     private val shadowMaterial: Material = context
@@ -54,21 +71,21 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
         }
 
     private val planeVertexFloatBuffer: FloatBuffer = ByteBuffer
-        .allocateDirect(planeVertexBufferSize * dimenV4A * Float.size)
+        .allocateDirect(PLANE_VERTEX_BUFFER_SIZE * dimenV4A * Float.size)
         .order(ByteOrder.nativeOrder())
         .asFloatBuffer()
 
     private val planeUvFloatBuffer: FloatBuffer = ByteBuffer
-        .allocateDirect(planeVertexBufferSize * dimenV2A * Float.size)
+        .allocateDirect(PLANE_VERTEX_BUFFER_SIZE * dimenV2A * Float.size)
         .order(ByteOrder.nativeOrder())
         .asFloatBuffer()
 
     private val planeIndexShortBuffer: ShortBuffer = ShortBuffer
-        .allocate(planeIndexBufferSize)
+        .allocate(PLANE_INDEX_BUFFER_SIZE)
 
     private val planeVertexBuffer: VertexBuffer = VertexBuffer
         .Builder()
-        .vertexCount(planeVertexBufferSize)
+        .vertexCount(PLANE_VERTEX_BUFFER_SIZE)
         .bufferCount(2)
         .attribute(
             VertexBuffer.VertexAttribute.POSITION,
@@ -88,7 +105,7 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
 
     private val planeIndexBuffer: IndexBuffer = IndexBuffer
         .Builder()
-        .indexCount(planeIndexBufferSize)
+        .indexCount(PLANE_INDEX_BUFFER_SIZE)
         .bufferType(IndexBuffer.Builder.IndexType.USHORT)
         .build(filament.engine)
 
@@ -116,8 +133,8 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
         var zMin = Float.POSITIVE_INFINITY
         var zMax = Float.NEGATIVE_INFINITY
 
-        var vertexBufferOffset: Int = 0
-        var indexBufferOffset: Int = 0
+        var vertexBufferOffset = 0
+        var indexBufferOffset = 0
 
         var indexWithoutShadow: Int? = null
 
@@ -146,8 +163,8 @@ class PlaneRenderer(context: Context, private val filament: Filament) {
                 )
 
             // check for for buffer overflow
-            if (vertexBufferOffset + planeVertices.count > planeVertexBufferSize ||
-                indexBufferOffset + planeTriangleIndices.shortArray.count() > planeIndexBufferSize
+            if (vertexBufferOffset + planeVertices.count > PLANE_VERTEX_BUFFER_SIZE ||
+                indexBufferOffset + planeTriangleIndices.shortArray.count() > PLANE_INDEX_BUFFER_SIZE
             ) {
                 break
             }

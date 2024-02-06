@@ -1,15 +1,33 @@
 package com.example.app.renderer
 
 import android.content.Context
-import com.example.app.*
+import com.example.app.V3
 import com.example.app.aractivity.ScreenPosition
 import com.example.app.arcore.ArCore
+import com.example.app.clampToTau
 import com.example.app.filament.Filament
+import com.example.app.m4Identity
+import com.example.app.rotate
+import com.example.app.scale
+import com.example.app.toDegrees
+import com.example.app.translate
+import com.example.app.v3Origin
+import com.example.app.x
+import com.example.app.y
+import com.example.app.z
 import com.google.ar.core.Frame
 import com.google.ar.core.Point
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 
@@ -39,13 +57,12 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
         coroutineScope.launch {
             val filamentAsset =
                 withContext(Dispatchers.IO) {
-                    @Suppress("BlockingMethodInNonBlockingContext")
                     context.assets
                         .open("eren-hiphop-dance.glb")
                         .use { input ->
                             val bytes = ByteArray(input.available())
                             input.read(bytes)
-                            filament.assetLoader.createAssetFromBinary(ByteBuffer.wrap(bytes))!!
+                            filament.assetLoader.createAsset(ByteBuffer.wrap(bytes))!!
                         }
                 }
                     .also { filament.resourceLoader.loadResources(it) }
@@ -92,7 +109,7 @@ class ModelRenderer(context: Context, private val arCore: ArCore, private val fi
 
                 doFrameEvents.collect { frame ->
                     // update animator
-                    val animator = filamentAsset.animator
+                    val animator = filamentAsset.instance.animator
 
                     if (animator.animationCount > 0) {
                         animator.applyAnimation(

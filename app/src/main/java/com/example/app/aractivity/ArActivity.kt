@@ -6,27 +6,59 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import android.view.*
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
-import com.example.app.*
+import com.example.app.OpenGLVersionNotSupported
+import com.example.app.PermissionResultEvent
+import com.example.app.R
+import com.example.app.UserCanceled
 import com.example.app.arcore.ArCore
+import com.example.app.cameraPermissionRequestCode
+import com.example.app.checkIfOpenGlVersionSupported
 import com.example.app.databinding.ExampleActivityBinding
 import com.example.app.filament.Filament
-import com.example.app.gesture.*
+import com.example.app.gesture.DragGesture
+import com.example.app.gesture.DragGestureRecognizer
+import com.example.app.gesture.PinchGesture
+import com.example.app.gesture.PinchGestureRecognizer
+import com.example.app.gesture.TransformationSystem
+import com.example.app.gesture.TwistGesture
+import com.example.app.gesture.TwistGestureRecognizer
+import com.example.app.minOpenGlVersion
+import com.example.app.renderer.FrameCallback
+import com.example.app.renderer.LightRenderer
+import com.example.app.renderer.ModelRenderer
+import com.example.app.renderer.PlaneRenderer
+import com.example.app.showOpenGlNotSupportedDialog
 import com.example.app.toRadians
 import com.example.app.x
 import com.example.app.y
-import com.example.app.renderer.*
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
@@ -424,7 +456,7 @@ class ArActivity : AppCompatActivity() {
 
     private suspend fun showCameraPermissionDialog(activity: AppCompatActivity) {
         if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-            suspendCancellableCoroutine<Unit> { continuation ->
+            suspendCancellableCoroutine { continuation ->
                 val alertDialog = AlertDialog
                     .Builder(activity)
                     .setTitle(R.string.camera_permission_title)

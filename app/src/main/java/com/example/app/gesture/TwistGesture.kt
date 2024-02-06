@@ -1,7 +1,15 @@
 package com.example.app.gesture
 
 import android.view.MotionEvent
-import com.example.app.*
+import com.example.app.V3
+import com.example.app.dot
+import com.example.app.eq
+import com.example.app.normalize
+import com.example.app.sub
+import com.example.app.toDegrees
+import com.example.app.v3Origin
+import com.example.app.x
+import com.example.app.y
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.sign

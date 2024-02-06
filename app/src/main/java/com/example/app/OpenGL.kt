@@ -1,6 +1,12 @@
 package com.example.app
 
-import android.opengl.*
+import android.opengl.EGL14
+import android.opengl.EGLConfig
+import android.opengl.EGLContext
+import android.opengl.EGLDisplay
+import android.opengl.EGLSurface
+import android.opengl.GLES11Ext
+import android.opengl.GLES30
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right

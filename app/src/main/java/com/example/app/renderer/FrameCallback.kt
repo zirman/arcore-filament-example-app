@@ -10,13 +10,14 @@ class FrameCallback(
     private val doFrame: (frame: Frame) -> Unit,
 ) : Choreographer.FrameCallback {
     companion object {
-        private const val maxFramesPerSecond: Long = 60
+        private const val MAX_FRAMES_PER_SECOND: Long = 60
     }
 
-    sealed class FrameRate(val factor: Long) {
-        object Full : FrameRate(1)
-        object Half : FrameRate(2)
-        object Third : FrameRate(3)
+    @Suppress("unused")
+    enum class FrameRate(val factor: Long) {
+        Full(1),
+        Half(2),
+        Third(3),
     }
 
     private val choreographer: Choreographer = Choreographer.getInstance()
@@ -28,7 +29,7 @@ class FrameCallback(
 
         // limit to max fps
         val nanoTime = System.nanoTime()
-        val tick = nanoTime / (TimeUnit.SECONDS.toNanos(1) / maxFramesPerSecond)
+        val tick = nanoTime / (TimeUnit.SECONDS.toNanos(1) / MAX_FRAMES_PER_SECOND)
 
         if (lastTick / frameRate.factor == tick / frameRate.factor) {
             return

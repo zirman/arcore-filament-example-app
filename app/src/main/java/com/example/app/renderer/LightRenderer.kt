@@ -3,9 +3,16 @@ package com.example.app.renderer
 import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.BitmapFactory
-import com.example.app.*
+import com.example.app.V3
+import com.example.app.div
 import com.example.app.filament.Filament
-import com.google.android.filament.*
+import com.example.app.getEnvironmentalHdrSphericalHarmonics
+import com.google.android.filament.Engine
+import com.google.android.filament.EntityInstance
+import com.google.android.filament.EntityManager
+import com.google.android.filament.IndirectLight
+import com.google.android.filament.LightManager
+import com.google.android.filament.Texture
 import com.google.ar.core.Frame
 import com.google.ar.core.LightEstimate
 import java.nio.ByteBuffer
@@ -30,7 +37,6 @@ class LightRenderer(context: Context, private val filament: Filament) {
 
             filament.engine.lightManager.getInstance(directionalLight)
         }
-
 
     fun doFrame(frame: Frame) {
         // update lighting estimate
@@ -77,6 +83,7 @@ class LightRenderer(context: Context, private val filament: Filament) {
     }
 }
 
+@Suppress("SameParameterValue")
 private fun peekSize(assets: AssetManager, name: String): Pair<Int, Int> {
     assets.open(name).use { input ->
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
