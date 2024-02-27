@@ -233,7 +233,7 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                         Texture
                             .Builder()
                             .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
-                            .format(Texture.InternalFormat.RGB8)
+                            .importTexture(cameraStreamTextureId.toLong())
                             .build(filament.engine)
                             .apply { setExternalStream(filament.engine, stream) },
                         TextureSampler(
@@ -399,22 +399,6 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             .build(filament.engine)
             .createInstance()
             .also { materialInstance ->
-                materialInstance.setParameter(
-                    "cameraTexture",
-                    Texture
-                        .Builder()
-                        .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
-                        .format(Texture.InternalFormat.RGB8)
-                        .build(filament.engine)
-                        .apply { setExternalStream(filament.engine, stream) },
-                    TextureSampler(
-                        TextureSampler.MinFilter.LINEAR,
-                        TextureSampler.MagFilter.LINEAR,
-                        TextureSampler.WrapMode.CLAMP_TO_EDGE,
-                    ),
-                    //.also { it.anisotropy = 8.0f }
-                )
-
                 materialInstance.setParameter(
                     "depthTexture",
                     Texture
