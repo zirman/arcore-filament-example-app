@@ -53,7 +53,7 @@ class ModelBuffers(val clipPosition: V2A, val uvs: V2A, val triangleIndices: Sho
 @SuppressLint("MissingPermission")
 class ArCore(private val activity: Activity, val filament: Filament, private val view: View) {
     companion object {
-        const val NEAR: Float = 0.1f
+        const val NEAR: Float = .1f
         const val FAR: Float = 30f
         private const val POSITION_BUFFER_INDEX: Int = 0
         private const val UV_BUFFER_INDEX: Int = 1
@@ -308,11 +308,11 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             }
             ?: run {
                 flatMaterialInstance.setParameter(
-                    "uvTransform",
-                    MaterialInstance.FloatElement.FLOAT4,
-                    uvTransform().floatArray,
-                    0,
-                    4,
+                    /* name = */ "uvTransform",
+                    /* type = */ MaterialInstance.FloatElement.FLOAT4,
+                    /* v = */ uvTransform().floatArray,
+                    /* offset = */ 0,
+                    /* count = */ 4,
                 )
 
                 filament.scene.removeEntity(depthRenderable)
@@ -321,9 +321,9 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
 
         // update camera projection
         filament.camera.setCustomProjection(
-            frame.projectionMatrix().floatArray.toDoubleArray(),
-            NEAR.toDouble(),
-            FAR.toDouble(),
+            /* inProjection = */ frame.projectionMatrix().floatArray.toDoubleArray(),
+            /* near = */ NEAR.toDouble(),
+            /* far = */ FAR.toDouble(),
         )
 
         val cameraTransform = frame.camera.displayOrientedPose.matrix()
@@ -341,40 +341,42 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             .receiveShadows(false)
             .culling(false)
             .geometry(
-                0,
-                PrimitiveType.TRIANGLES,
+                /* index = */ 0,
+                /* type = */ PrimitiveType.TRIANGLES,
+                /* vertices = */
                 VertexBuffer
                     .Builder()
                     .vertexCount(tes.clipPosition.count())
                     .bufferCount(2)
                     .attribute(
-                        VertexAttribute.POSITION,
-                        POSITION_BUFFER_INDEX,
-                        AttributeType.FLOAT2,
-                        0,
-                        0,
+                        /* attribute = */ VertexAttribute.POSITION,
+                        /* bufferIndex = */ POSITION_BUFFER_INDEX,
+                        /* attributeType = */ AttributeType.FLOAT2,
+                        /* byteOffset = */ 0,
+                        /* byteStride = */ 0,
                     )
                     .attribute(
-                        VertexAttribute.UV0,
-                        UV_BUFFER_INDEX,
-                        AttributeType.FLOAT2,
-                        0,
-                        0,
+                        /* attribute = */ VertexAttribute.UV0,
+                        /* bufferIndex = */ UV_BUFFER_INDEX,
+                        /* attributeType = */ AttributeType.FLOAT2,
+                        /* byteOffset = */ 0,
+                        /* byteStride = */ 0,
                     )
                     .build(filament.engine)
                     .also { vertexBuffer ->
                         vertexBuffer.setBufferAt(
-                            filament.engine,
-                            POSITION_BUFFER_INDEX,
-                            tes.clipPosition.floatArray.toFloatBuffer(),
+                            /* engine = */ filament.engine,
+                            /* bufferIndex = */ POSITION_BUFFER_INDEX,
+                            /* buffer = */ tes.clipPosition.floatArray.toFloatBuffer(),
                         )
 
                         vertexBuffer.setBufferAt(
-                            filament.engine,
-                            UV_BUFFER_INDEX,
-                            tes.uvs.floatArray.toFloatBuffer(),
+                            /* engine = */ filament.engine,
+                            /* bufferIndex = */ UV_BUFFER_INDEX,
+                            /* buffer = */ tes.uvs.floatArray.toFloatBuffer(),
                         )
                     },
+                /* indices = */
                 IndexBuffer
                     .Builder()
                     .indexCount(tes.triangleIndices.size)
@@ -400,7 +402,8 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
             .createInstance()
             .also { materialInstance ->
                 materialInstance.setParameter(
-                    "depthTexture",
+                    /* name = */ "depthTexture",
+                    /* texture = */
                     Texture
                         .Builder()
                         .width(depthImage.width)
@@ -410,15 +413,15 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                         .levels(1)
                         .build(filament.engine)
                         .also { depthTexture = it },
-                    TextureSampler(), //.also { it.anisotropy = 8.0f }
+                    /* sampler = */ TextureSampler(), //.also { it.anisotropy = 8.0f }
                 )
 
                 materialInstance.setParameter(
-                    "uvTransform",
-                    MaterialInstance.FloatElement.FLOAT4,
-                    m4Identity().floatArray,
-                    0,
-                    4,
+                    /* name = */ "uvTransform",
+                    /* type = */ MaterialInstance.FloatElement.FLOAT4,
+                    /* v = */ m4Identity().floatArray,
+                    /* offset = */ 0,
+                    /* count = */ 4,
                 )
             }
 
@@ -435,31 +438,31 @@ class ArCore(private val activity: Activity, val filament: Filament, private val
                     .vertexCount(tes.clipPosition.count())
                     .bufferCount(2)
                     .attribute(
-                        VertexAttribute.POSITION,
-                        POSITION_BUFFER_INDEX,
-                        AttributeType.FLOAT2,
-                        0,
-                        0,
+                        /* attribute = */ VertexAttribute.POSITION,
+                        /* bufferIndex = */ POSITION_BUFFER_INDEX,
+                        /* attributeType = */ AttributeType.FLOAT2,
+                        /* byteOffset = */ 0,
+                        /* byteStride = */ 0,
                     )
                     .attribute(
-                        VertexAttribute.UV0,
-                        UV_BUFFER_INDEX,
-                        AttributeType.FLOAT2,
-                        0,
-                        0,
+                        /* attribute = */ VertexAttribute.UV0,
+                        /* bufferIndex = */ UV_BUFFER_INDEX,
+                        /* attributeType = */ AttributeType.FLOAT2,
+                        /* byteOffset = */ 0,
+                        /* byteStride = */ 0,
                     )
                     .build(filament.engine)
                     .also { vertexBuffer ->
                         vertexBuffer.setBufferAt(
-                            filament.engine,
-                            POSITION_BUFFER_INDEX,
-                            tes.clipPosition.floatArray.toFloatBuffer()
+                            /* engine = */ filament.engine,
+                            /* bufferIndex = */ POSITION_BUFFER_INDEX,
+                            /* buffer = */ tes.clipPosition.floatArray.toFloatBuffer()
                         )
 
                         vertexBuffer.setBufferAt(
-                            filament.engine,
-                            UV_BUFFER_INDEX,
-                            tes.uvs.floatArray.toFloatBuffer()
+                            /* engine = */ filament.engine,
+                            /* bufferIndex = */ UV_BUFFER_INDEX,
+                            /* buffer = */ tes.uvs.floatArray.toFloatBuffer()
                         )
                     },
                 IndexBuffer
