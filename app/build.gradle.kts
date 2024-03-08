@@ -93,7 +93,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring(libs.desugarJdkLibs)
+    coreLibraryDesugaring(libs.desugarJdkLibsNio)
     implementation(platform(libs.composeBom))
 
     implementation(libs.hiltAndroid)
